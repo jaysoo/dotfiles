@@ -82,6 +82,12 @@ alias ll='ls -alF'
 alias la='ls -A'
 alias l='ls -CF'
 
+# going up directories
+alias ..2='cd ../..'
+alias ..3='cd ../../..'
+alias ..4='cd ../../../..'
+alias ..5='cd ../../../../..'
+
 # Alias definitions.
 # You may want to put all your additions into a separate file like
 # ~/.bash_aliases, instead of adding them here directly.
@@ -97,3 +103,7 @@ fi
 if [ -f /etc/bash_completion ] && ! shopt -oq posix; then
     . /etc/bash_completion
 fi
+
+export SVN_EDITOR=vim
+
+set -o vi
