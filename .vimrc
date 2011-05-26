@@ -17,7 +17,7 @@ set ruler           " show the cursor position all the time
 set visualbell t_vb=    " turn off error beep/flash
 set novisualbell    " turn off visual bell
 set nobackup        " do not keep a backup file
-set number          " show line numbers
+"set number          " show line numbers
 set ignorecase      " ignore case when searching
 "set noignorecase   " don't ignore case
 set title           " show title in console title bar
