@@ -45,19 +45,6 @@ set nocindent
 
 syntax on
 
-if has("gui_running")
-    " See ~/.gvimrc
-    set guifont=Monospace\ 10  " use this font
-    set lines=50       " height = 50 lines
-    set columns=100        " width = 100 columns
-    set background=light   " adapt colors for background
-    set selectmode=mouse,key,cmd
-    set keymodel=
-else
-    colorscheme elflord    " use this color scheme
-    set background=dark        " adapt colors for background
-endif
-
 if has("autocmd")
     " Restore cursor position
     au BufReadPost * if line("'\"") > 0|if line("'\"") <= line("$")|exe("norm '\"")|else|exe "norm $"|endif|endif
