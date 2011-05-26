@@ -42,7 +42,9 @@ set nocindent
 "set sm             " show matching braces, somewhat annoying...
 "set nowrap         " don't wrap lines
 
-syntax on
+syntax enable
+set background=dark
+colorscheme solarized
 
 if has("autocmd")
     " Restore cursor position
