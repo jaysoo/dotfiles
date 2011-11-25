@@ -107,6 +107,6 @@ fi
 
 export SVN_EDITOR=vim
 
-export PATH=$PATH:/opt/local/bin
+export PATH=$HOME/bin:$PATH:/opt/local/bin:/usr/local/git/bin
 
 set -o vi

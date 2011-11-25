@@ -1,4 +1,5 @@
 syntax on
+filetype on
 filetype plugin indent on
 "au BufRead,BufNewFile *.tag set filetype=jsp
 
