@@ -82,6 +82,7 @@ map ,u :source ~/.vimrc<cr> " update the system settings from my vimrc file
 "----- write out html file
 map ,h :source $VIM/vim71/syntax/2html.vim<cr>:w<cr>:clo<cr>
 
+call pathogen#infect()
 
 " Common command line typos
 "cmap W w
