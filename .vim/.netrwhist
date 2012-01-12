@@ -1,0 +1,11 @@
+let g:netrw_dirhistmax  =10
+let g:netrw_dirhist_cnt =9
+let g:netrw_dirhist_1='/Users/jhsu/code/SciMart/ivy'
+let g:netrw_dirhist_2='/Users/jhsu/code/SciMart/test/sparql'
+let g:netrw_dirhist_3='/Users/jhsu/code/SciMart/wro'
+let g:netrw_dirhist_4='/Users/jhsu/code/SciMart/web/webapps/martapps/static/js/test/unit/results'
+let g:netrw_dirhist_5='/Users/jhsu/code/SciMart/web/webapps/martapps/static/css/test'
+let g:netrw_dirhist_6='/Users/jhsu/code/biomart-java/release-0_8-candidate_7/test'
+let g:netrw_dirhist_7='/Users/jhsu/SciMart'
+let g:netrw_dirhist_8='/Users/jhsu/code/SciMart/web/webapps/martapps/static/js/src/core'
+let g:netrw_dirhist_9='/Users/jhsu/dotfiles/.git'
