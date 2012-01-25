@@ -1,4 +1,4 @@
-Sets up a new development environment.
+Single script for setting up a new development environment.
 
 * Copies over all vim settings
 * Custom settings for bash
@@ -10,3 +10,4 @@ Installation
 Using curl:
 
   curl -L https://github.com/jaysoo/dotfiles/raw/master/install.sh | sh
+
