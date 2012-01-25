@@ -2,12 +2,19 @@
 
 if [ -d ~/dotfiles ]
 then
-  echo "\033[0;33mAlready installed"
-  exit
+    echo "\033[0;34mUpdating dotfiles...\033[0m"
+    cd ~/dotfiles ; /usr/bin/env git pull origin master ; cd -
+else
+    echo "\033[0;34mCloning dotfiles...\033[0m"
+    /usr/bin/env git clone https://jaysoo@github.com/jaysoo/dotfiles.git ~/dotfiles
 fi
 
-echo "\033[0;34mCloning dotfiles...\033[0m"
-/usr/bin/env git clone https://jaysoo@github.com/jaysoo/dotfiles.git ~/dotfiles
+# Install pathogen
+mkdir -p ~/.vim/autoload ~/.vim/bundle
+if [ -d ~/.vim/autoload/pathogen ]
+then
+    curl -so ~/.vim/autoload/pathogen.vim https://raw.github.com/tpope/vim-pathogen/HEAD/autoload/pathogen.vim
+fi
 
 if [ -f ~/.vimrc ] || [ -h ~/.vimrc ]
 then
