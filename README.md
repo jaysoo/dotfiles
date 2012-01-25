@@ -9,5 +9,4 @@ Installation
 
 Using curl:
 
-  curl -L https://github.com/jaysoo/dotfiles/raw/master/install.sh | sh
-
+    curl -L https://github.com/jaysoo/dotfiles/raw/master/install.sh | sh
