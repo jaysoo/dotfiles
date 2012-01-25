@@ -4,8 +4,8 @@ Sets up a new development environment.
 * Custom settings for bash
 * Installs [OH MY ZSHELL](https://github.com/robbyrussell/oh-my-zsh)
 
-Setup
------
+Installation
+------------
 
 Using curl:
 

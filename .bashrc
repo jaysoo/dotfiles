@@ -108,5 +108,6 @@ fi
 export SVN_EDITOR=vim
 
 export PATH=$HOME/bin:$PATH:/opt/local/bin:/usr/local/git/bin
+export JAVA_HOME=/Library/Java/Home
 
 set -o vi
