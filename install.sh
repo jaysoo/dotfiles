@@ -1,3 +1,5 @@
+#!/bin/sh
+
 if [ -d ~/dotfiles ]
 then
   echo "\033[0;33mAlready installed"
