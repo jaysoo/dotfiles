@@ -16,6 +16,15 @@ then
     curl -so ~/.vim/autoload/pathogen.vim https://raw.github.com/tpope/vim-pathogen/HEAD/autoload/pathogen.vim
 fi
 
+# Install solarized
+
+if [ ! -d ~/.vim/bundle/vim-colors-solarized ]
+then
+	cd ~/.vim/bundle
+	git clone git://github.com/altercation/vim-colors-solarized.git
+	cd -
+fi
+
 if [ -f ~/.vimrc ] || [ -h ~/.vimrc ]
 then
   echo "\033[0;33mFound ~/.vimrc.\033[0m \033[0;32]Backing up to ~/.vimrc.bak\033[0m";
