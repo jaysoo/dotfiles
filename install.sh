@@ -6,7 +6,7 @@ then
     cd ~/dotfiles ; /usr/bin/env git pull origin master ; cd -
 else
     echo "\033[0;34mCloning dotfiles...\033[0m"
-    /usr/bin/env git clone https://jaysoo@github.com/jaysoo/dotfiles.git ~/dotfiles
+	/usr/bin/env git clone git://github.com/jaysoo/dotfiles.git ~/dotfiles
 fi
 
 # Install pathogen
