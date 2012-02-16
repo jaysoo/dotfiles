@@ -13,11 +13,10 @@ mkdir -p $HOME/lib
 
 # Install Exuberant Ctags
 pushd ~
-wget http://prdownloads.sourceforge.net/ctags/ctags-5.8.tar.gz -o ctags-5.8.tar.gz
-tar zxvf ctags-5.8.tar.gz
-cd ctags-5.8
-./configure --prefix=$HOME/lib
-make ; make install
+git clone git://github.com/mozilla/doctorjs.git doctorjs
+cd doctorjs
+git submodule init ; git submodule update
+make install PREFIX="$HOME/lib"
 popd
 
 # Install pathogen

@@ -84,6 +84,8 @@ map ,u :source ~/.vimrc<cr> " update the system settings from my vimrc file
 "----- write out html file
 map ,h :source $VIM/vim71/syntax/2html.vim<cr>:w<cr>:clo<cr>
 
+map ,l :TlistToggle<cr>
+
 " Common command line typos
 "cmap W w
 "cmap Q q
@@ -115,4 +117,5 @@ map ,h :source $VIM/vim71/syntax/2html.vim<cr>:w<cr>:clo<cr>
 "imap <Esc>Oy 9
 "imap <Esc>Oz 0
 
-let Tlist_Ctags_Cmd='/opt/local/bin/ctags'
+let Tlist_Ctags_Cmd='$HOME/lib/bin/jsctags'
+
