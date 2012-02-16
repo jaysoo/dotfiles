@@ -9,14 +9,14 @@ else
 	/usr/bin/env git clone git://github.com/jaysoo/dotfiles.git ~/dotfiles
 fi
 
-mkdir -p $HOME/lib
+mkdir -p $HOME/local
 
-# Install Exuberant Ctags
+# Install jsctags
 pushd ~
 git clone git://github.com/mozilla/doctorjs.git doctorjs
 cd doctorjs
 git submodule init ; git submodule update
-make install PREFIX="$HOME/lib"
+make install PREFIX="$HOME/local"
 popd
 
 # Install pathogen
@@ -27,7 +27,6 @@ then
 fi
 
 # Install solarized
-
 if [ ! -d ~/.vim/bundle/vim-colors-solarized ]
 then
 	cd ~/.vim/bundle
