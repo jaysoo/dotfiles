@@ -10,6 +10,7 @@ else
 fi
 
 mkdir -p $HOME/local
+touch $HOME/zshrc.sh
 
 # Install jsctags
 pushd ~
