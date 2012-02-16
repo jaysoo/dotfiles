@@ -3,6 +3,8 @@ filetype on
 filetype plugin indent on
 "au BufRead,BufNewFile *.tag set filetype=jsp
 
+call pathogen#infect()
+
 set showmatch       " show matching parens
 set vb t_vb=        " disable beeping
 set nohls           " no highlight for search term
@@ -81,8 +83,6 @@ map ,e :e ~/.vimrc<cr>      " edit my .vimrc file
 map ,u :source ~/.vimrc<cr> " update the system settings from my vimrc file
 "----- write out html file
 map ,h :source $VIM/vim71/syntax/2html.vim<cr>:w<cr>:clo<cr>
-
-call pathogen#infect()
 
 " Common command line typos
 "cmap W w

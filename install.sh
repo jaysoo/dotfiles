@@ -2,12 +2,28 @@
 
 if [ -d ~/dotfiles ]
 then
-  echo "\033[0;33mAlready installed"
-  exit
+    echo "\033[0;34mUpdating dotfiles...\033[0m"
+    cd ~/dotfiles ; /usr/bin/env git pull origin master ; cd -
+else
+    echo "\033[0;34mCloning dotfiles...\033[0m"
+	/usr/bin/env git clone git://github.com/jaysoo/dotfiles.git ~/dotfiles
 fi
 
-echo "\033[0;34mCloning dotfiles...\033[0m"
-/usr/bin/env git clone https://jaysoo@github.com/jaysoo/dotfiles.git ~/dotfiles
+# Install pathogen
+mkdir -p ~/.vim/autoload ~/.vim/bundle
+if [ ! -f ~/.vim/autoload/pathogen.vim ]
+then
+    curl -so ~/.vim/autoload/pathogen.vim https://raw.github.com/tpope/vim-pathogen/HEAD/autoload/pathogen.vim
+fi
+
+# Install solarized
+
+if [ ! -d ~/.vim/bundle/vim-colors-solarized ]
+then
+	cd ~/.vim/bundle
+	git clone git://github.com/altercation/vim-colors-solarized.git
+	cd -
+fi
 
 if [ -f ~/.vimrc ] || [ -h ~/.vimrc ]
 then
