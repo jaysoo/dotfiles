@@ -114,3 +114,5 @@ map ,h :source $VIM/vim71/syntax/2html.vim<cr>:w<cr>:clo<cr>
 "imap <Esc>Ox 8
 "imap <Esc>Oy 9
 "imap <Esc>Oz 0
+
+let Tlist_Ctags_Cmd='/opt/local/bin/ctags'
