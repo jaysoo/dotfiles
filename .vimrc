@@ -9,8 +9,8 @@ set nohls           " no highlight for search term
 set virtualedit=all
 set nocompatible    " use vim defaults
 set ls=2            " allways show status line
-set tabstop=4       " numbers of spaces of tab character
-set shiftwidth=4    " numbers of spaces to (auto)indent
+set tabstop=2       " numbers of spaces of tab character
+set shiftwidth=2    " numbers of spaces to (auto)indent
 set scrolloff=3     " keep 3 lines when scrolling
 set showcmd         " display incomplete commands
 set incsearch       " do incremental searching
