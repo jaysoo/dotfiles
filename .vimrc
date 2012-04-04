@@ -85,6 +85,7 @@ map ,u :source ~/.vimrc<cr> " update the system settings from my vimrc file
 map ,h :source $VIM/vim71/syntax/2html.vim<cr>:w<cr>:clo<cr>
 
 map ,l :TlistToggle<cr>
+map ,t :NERDTree<cr>
 
 " Common command line typos
 "cmap W w
