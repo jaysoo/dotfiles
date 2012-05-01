@@ -75,17 +75,19 @@ if has("autocmd")
 endif
 
 " Keyboard mappings
+let mapleader=","
 map <F1> :previous<CR>  " map F1 to open previous buffer
 map <F2> :next<CR>      " map F2 to open next buffer
 map <silent> <C-N> :silent noh<CR> " turn off highlighted search
-map ,v :sp ~/.vimrc<cr> " edit my .vimrc file in a split
-map ,e :e ~/.vimrc<cr>      " edit my .vimrc file
-map ,u :source ~/.vimrc<cr> " update the system settings from my vimrc file
+map <Leader>v :sp ~/.vimrc<cr> " edit my .vimrc file in a split
+map <Leader>e :e ~/.vimrc<cr>      " edit my .vimrc file
+map <Leader>u :source ~/.vimrc<cr> " update the system settings from my vimrc file
 "----- write out html file
-map ,h :source $VIM/vim71/syntax/2html.vim<cr>:w<cr>:clo<cr>
+map <Leader>h :source $VIM/vim71/syntax/2html.vim<cr>:w<cr>:clo<cr>
 
-map ,l :TlistToggle<cr>
-map ,t :NERDTree<cr>
+map <Leader>l :TlistToggle<cr>
+map <Leader>t :NERDTree<cr>
+map <Leader>rs :!node tools/runspecs.js -v %:t<cr>
 
 " Common command line typos
 "cmap W w
@@ -119,3 +121,4 @@ map ,t :NERDTree<cr>
 "imap <Esc>Oz 0
 
 let g:Tlist_Inc_Winwidth=0
+au BufNewFile,BufReadPost *.coffee setl shiftwidth=2 expandtab
