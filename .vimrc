@@ -118,3 +118,4 @@ map ,t :NERDTree<cr>
 "imap <Esc>Oy 9
 "imap <Esc>Oz 0
 
+let g:Tlist_Inc_Winwidth=0
