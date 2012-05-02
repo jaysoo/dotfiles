@@ -87,7 +87,8 @@ map <Leader>h :source $VIM/vim71/syntax/2html.vim<cr>:w<cr>:clo<cr>
 
 map <Leader>l :TlistToggle<cr>
 map <Leader>t :NERDTree<cr>
-map <Leader>rs :!node tools/runspecs.js -v %:t<cr>
+map <Leader>rs :!node $JS_PATH/tools/runspecs.js -v %:t<cr>
+map <Leader>rS :!node $JS_PATH/tools/runspecs.js -v --all<cr>
 
 " Common command line typos
 "cmap W w
