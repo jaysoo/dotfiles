@@ -11,8 +11,8 @@ set nohls           " no highlight for search term
 set virtualedit=all
 set nocompatible    " use vim defaults
 set ls=2            " allways show status line
-set tabstop=2       " numbers of spaces of tab character
-set shiftwidth=2    " numbers of spaces to (auto)indent
+set tabstop=4       " numbers of spaces of tab character
+set shiftwidth=4    " numbers of spaces to (auto)indent
 set scrolloff=3     " keep 3 lines when scrolling
 set showcmd         " display incomplete commands
 set incsearch       " do incremental searching
@@ -41,7 +41,7 @@ set nosmartindent
 set nocindent  
 
 "set autowrite      " auto saves changes when quitting and swiching buffer
-"set expandtab      " tabs are converted to spaces, use only when required
+set expandtab      " tabs are converted to spaces, use only when required
 "set sm             " show matching braces, somewhat annoying...
 "set nowrap         " don't wrap lines
 
@@ -87,8 +87,11 @@ map <Leader>h :source $VIM/vim71/syntax/2html.vim<cr>:w<cr>:clo<cr>
 
 map <Leader>l :TlistToggle<cr>
 map <Leader>t :NERDTree<cr>
-map <Leader>rs :!node $JS_PATH/tools/runspecs.js -v %:t<cr>
-map <Leader>rS :!node $JS_PATH/tools/runspecs.js -v --all<cr>
+map <Leader>rs :!coffee $JS_PATH/tools/runspecs.coffee %:p<cr>
+map <Leader>rS :!coffee $JS_PATH/tools/runspecs.coffee --all<cr>
+
+map <Leader>pdb ofrom ipdb import set_trace; set_trace()<Esc>
+map <Leader>cd Odefine (require, exports, module) -><cr>  
 
 " Common command line typos
 "cmap W w
