@@ -1,0 +1,12 @@
+[alias]
+	lg = log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr)%Creset' --abbrev-commit --date=relative
+	yolo = push --force
+    fuckit = reset HEAD --hard
+    giveup = rebase --abort
+[user]
+	email = jack.hsu@gmail.com
+	name = Jack Hsu
+[github]
+	user = jaysoo
+[credential]
+	helper = osxkeychain
