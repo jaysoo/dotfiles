@@ -86,9 +86,10 @@ map <Leader>u :source ~/.vimrc<cr> " update the system settings from my vimrc fi
 map <Leader>h :source $VIM/vim71/syntax/2html.vim<cr>:w<cr>:clo<cr>
 
 map <Leader>l :TlistToggle<cr>
-map <Leader>t :NERDTree<cr>
-map <Leader>rs :!coffee $JS_PATH/tools/runspecs.coffee %:p<cr>
-map <Leader>rS :!coffee $JS_PATH/tools/runspecs.coffee --all<cr>
+map <Leader>t :CommandT<cr>
+"map <Leader>t :NERDTree<cr>
+"map <Leader>rs :!coffee $JS_PATH/tools/runspecs.coffee %:p<cr>
+"map <Leader>rS :!coffee $JS_PATH/tools/runspecs.coffee --all<cr>
 
 map <Leader>pdb ofrom ipdb import set_trace; set_trace()<Esc>
 map <Leader>cd Odefine (require, exports, module) -><cr>  
