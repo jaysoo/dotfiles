@@ -86,7 +86,7 @@ map <Leader>u :source ~/.vimrc<cr> " update the system settings from my vimrc fi
 map <Leader>h :source $VIM/vim71/syntax/2html.vim<cr>:w<cr>:clo<cr>
 
 map <Leader>l :TlistToggle<cr>
-map <Leader>t :CommandT<cr>
+map <Leader>t :CtrlP<cr>
 "map <Leader>t :NERDTree<cr>
 "map <Leader>rs :!coffee $JS_PATH/tools/runspecs.coffee %:p<cr>
 "map <Leader>rS :!coffee $JS_PATH/tools/runspecs.coffee --all<cr>
@@ -127,3 +127,5 @@ map <Leader>cd Odefine (require, exports, module) -><cr>
 
 let g:Tlist_Inc_Winwidth=0
 au BufNewFile,BufReadPost *.coffee setl shiftwidth=2 expandtab
+
+set runtimepath^=~/.vim/bundle/ctrlp.vim
