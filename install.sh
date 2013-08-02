@@ -60,6 +60,8 @@ echo "\033[0;34mCreating symlinks...\033[0m"
 ln -s ~/dotfiles/.vimrc ~/.vimrc
 ln -s ~/dotfiles/.bashrc ~/.bashrc
 ln -s ~/dotfiles/.vim ~/.vim
+ln -s ~/dotfiles/.jshintrc ~/.jshintrc
+ln -s ~/dotfiles/.rubocop.yml ~/.rubocop.yml
 
 echo "\n\n \033[0;32m... finished setup.\033[0m"
 
