@@ -58,7 +58,8 @@
       "$j": false,
       "Marionette": false,
       "Handlebars": false,
-      "Backbone": false
+      "Backbone": false,
+      "define": false
     },
 
     // Development

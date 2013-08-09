@@ -82,12 +82,14 @@ echo
 curl -L https://github.com/robbyrussell/oh-my-zsh/raw/master/tools/install.sh | sh
 
 
-# Setup git alias
+# Setup git
 
 echo
-echo "\033[0;34mSetting up git aliases...\033[0m"
-git config --global alias.lg "log --color --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit"
+echo "\033[0;34mSetting up git...\033[0m"
 
+git config --global alias.lg "log --color --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit"
+git config branch.autosetuprebase always
+git config --global merge.ff no
 
 echo
 echo "\n\n \033[0;32m... finished setup.\033[0m"

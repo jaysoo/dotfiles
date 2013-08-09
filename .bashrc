@@ -111,3 +111,7 @@ export PATH=$HOME/bin:$PATH:/opt/local/bin:/usr/local/git/bin
 export JAVA_HOME=/Library/Java/Home
 
 set -o vi
+
+PATH=$PATH:$HOME/.rvm/bin # Add RVM to PATH for scripting
+source ~/.rvm/scripts/rvm
+export PATH="$HOME/.rvm/bin:$PATH"
