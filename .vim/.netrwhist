@@ -1,5 +1,6 @@
 let g:netrw_dirhistmax  =10
-let g:netrw_dirhist_cnt =3
+let g:netrw_dirhist_cnt =4
 let g:netrw_dirhist_1='/Users/jack/.rbenv'
 let g:netrw_dirhist_2='/Users/jack/src/packmanager/dev/test'
 let g:netrw_dirhist_3='/Users/jack/dotfiles'
+let g:netrw_dirhist_4='/Users/jack/src/packmanager/dev/db'

@@ -1,2 +1,2 @@
 --color
---ignore-case
+--ignore-dir .jhw-cache/ --ignore-dir log

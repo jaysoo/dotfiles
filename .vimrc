@@ -87,7 +87,7 @@ map <Leader>h :source $VIM/vim71/syntax/2html.vim<cr>:w<cr>:clo<cr>
 
 map <Leader>l :TlistToggle<cr>
 map <Leader>t :CtrlP<cr>
-"map <Leader>t :NERDTree<cr>
+map <Leader>t :NERDTree<cr>
 "map <Leader>rs :!coffee $JS_PATH/tools/runspecs.coffee %:p<cr>
 "map <Leader>rS :!coffee $JS_PATH/tools/runspecs.coffee --all<cr>
 
@@ -124,6 +124,12 @@ map <Leader>cd Odefine (require, exports, module) -><cr>
 "imap <Esc>Ox 8
 "imap <Esc>Oy 9
 "imap <Esc>Oz 0
+
+"rails
+let g:rails_path_additions = ['domain/common', 'domain/integration', 'domain/invoicing', 'domain/picking',
+            \'domain/production', 'domain/quickbooks', 'domain/reports', 'domain/true_efficiency', 'domain/icg',
+            \'domain/inventory', 'domain/master', 'domain/planning', 'domain/quality', 'domain/quoting',
+            \'domain/shipping_receiving', 'domain/wms']
 
 let g:Tlist_Inc_Winwidth=0
 au BufNewFile,BufReadPost *.coffee setl shiftwidth=2 expandtab
