@@ -46,6 +46,7 @@
       "Stub": false,
       "EmitterStub": false,
       "PromiseAdapter": false,
+      "sinon": false,
 
 
       "moment": false,
@@ -59,6 +60,9 @@
       "Marionette": false,
       "Handlebars": false,
       "Backbone": false,
+      "inject": false,
+      "jasmine": false,
+      "angular": false,
       "define": false
     },
 

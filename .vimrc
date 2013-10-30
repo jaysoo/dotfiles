@@ -20,7 +20,7 @@ set ruler           " show the cursor position all the time
 set visualbell t_vb=    " turn off error beep/flash
 set novisualbell    " turn off visual bell
 set nobackup        " do not keep a backup file
-set number          " show line numbers
+set relativenumber          " show line numbers
 set ignorecase      " ignore case when searching
 "set noignorecase   " don't ignore case
 set title           " show title in console title bar
@@ -148,3 +148,5 @@ nnoremap <leader>l :TagbarToggle<CR>
 python from powerline.vim import setup as powerline_setup
 python powerline_setup()
 python del powerline_setup
+
+let g:syntastic_html_tidy_ignore_errors=[" proprietary attribute \"ng-"]
