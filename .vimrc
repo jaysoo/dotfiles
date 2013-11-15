@@ -1,7 +1,10 @@
 syntax on
-filetype on
+filetype off
+
+call pathogen#runtime_append_all_bundles()
+
 filetype plugin indent on
-"au BufRead,BufNewFile *.tag set filetype=jsp
+syntax on
 
 call pathogen#infect()
 
@@ -86,7 +89,6 @@ map <Leader>u :source ~/.vimrc<cr> " update the system settings from my vimrc fi
 map <Leader>h :source $VIM/vim71/syntax/2html.vim<cr>:w<cr>:clo<cr>
 
 map <Leader>l :TlistToggle<cr>
-map <Leader>t :CtrlP<cr>
 map <Leader>t :NERDTree<cr>
 "map <Leader>rs :!coffee $JS_PATH/tools/runspecs.coffee %:p<cr>
 "map <Leader>rS :!coffee $JS_PATH/tools/runspecs.coffee --all<cr>
@@ -150,3 +152,12 @@ python powerline_setup()
 python del powerline_setup
 
 let g:syntastic_html_tidy_ignore_errors=[" proprietary attribute \"ng-"]
+
+
+call unite#filters#matcher_default#use(['matcher_fuzzy'])
+call unite#filters#sorter_default#use(['sorter_rank'])
+call unite#set_profile('files', 'smartcase', 1)
+call unite#custom#source('line,outline','matchers','matcher_fuzzy')
+
+let g:vimclojure#HighlightBuiltins = 1
+let g:vimclojure#ParenRainbow = 1
