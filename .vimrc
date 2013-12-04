@@ -1,4 +1,3 @@
-syntax on
 filetype off
 
 call pathogen#runtime_append_all_bundles()
@@ -161,3 +160,13 @@ call unite#custom#source('line,outline','matchers','matcher_fuzzy')
 
 let g:vimclojure#HighlightBuiltins = 1
 let g:vimclojure#ParenRainbow = 1
+let vimclojure#NailgunClient = "/Users/jack/bin/ng"
+let vimclojure#WantNailgun = 1 
+
+
+nnoremap <Leader>% :<C-u>call <SID>copy_path()<CR>
+function! s:copy_path()
+  let @*=expand('%')
+  let @"=expand('%')
+  let @+=expand('%')
+endfunction 
