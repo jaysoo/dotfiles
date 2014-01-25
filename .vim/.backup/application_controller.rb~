@@ -1,0 +1,451 @@
+class ApplicationController < ActionController::Base
+  extend CanOutputXml
+
+  before_filter :log_middleware_time
+  before_filter :start_filter_timer
+
+  include Controller::Utilities
+  include Controller::FileUtilities
+  include Formatters::DateTimeFormatter
+
+  around_filter :ensure_big_brother_log_response
+
+  protect_from_forgery
+  helper :all
+
+  before_filter :require_user
+  before_filter :set_locale
+  before_filter :set_frontend_configuration
+
+  include Controller::SchemaSearchPath
+
+  before_filter :require_subsite_access, :not_expired, :clear_pick_list_cache
+
+  include Controller::LogUser
+  include Controller::Timezone
+
+  before_filter :big_brother_log_request, :require_valid_ip, :check_permissions, :load_bubbles_for_user, :set_new_relic_user_params
+
+  include Controller::StatementTimeout
+
+  before_filter :end_filter_timer
+
+  helper_method :current_user_session, :current_user, :current_site, :current_account, :current_company
+
+  # Singleton class for view helpers - put any more in here and use help to access their methods.
+  class Helper
+    include Singleton
+    include ActionView::Helpers::TextHelper # needed for pluralize in do_csv_import
+    include ActionView::Helpers::JavaScriptHelper
+  end
+
+  protected
+
+  def clear_pick_list_cache
+    PickListRepository.clear_cache
+  end
+
+  def start_filter_timer
+    @start_filter_time = Time.now
+  end
+
+  def end_filter_timer
+    end_filter_time = Time.now
+    Rails.logger.info "Time spent in filters: #{((end_filter_time - @start_filter_time)*1000).to_i}ms"
+  end
+
+  def set_new_relic_user_params
+    if current_user
+      username = "#{current_user.id} #{current_user.login}"
+      sitename = "#{current_user.site.id} #{current_user.site.name}"
+      NewRelic::Agent.set_user_attributes( :user => username, :account => sitename )
+    end
+  end
+
+  def log_middleware_time
+    Rails.logger.info "Total time spent getting to controller: #{Nulogy::Middleware::MiddlewareStart.elapsed_time(env)}ms"
+  end
+
+  def set_frontend_configuration
+    @frontend_configuration = FrontendConfiguration.new(current_user, ApplicationConfiguration)
+  end
+
+  def set_locale
+    Utils::I18n.set_locale current_user.try(:locale) #the fallback handles the nil case
+    Utils::I18n.account_locale = current_user.try(:account).try(:locale)
+  end
+
+  rescue_from ActiveRecord::RecordNotFound do |exception|
+    if flash['switching_site']
+      redirect_to no_access_page
+    else
+      return if pass_through_if_local exception
+      render_404
+    end
+  end
+
+  def ensure_big_brother_log_response
+    yield
+  ensure
+    start_time = Time.now
+    big_brother_log_response
+    end_time = Time.now
+    Rails.logger.info "Time spent logging response: #{((end_time - start_time)*1000).to_i}ms"
+  end
+
+  def help
+    Helper.instance
+  end
+
+  def load_bubbles_for_user
+    @bubbles_to_load = Bubble.unacknowledged_bubbles current_user, request.path
+  end
+
+  # Use this method to more clearly define permissions on a controller
+  #
+  # modules - specify all modules using permit-style syntax e.g. "mod_planning and mod_inventory"
+  # permissions - arrays of actions, hashed by role e.g. {User::LEAD => [:action_1, :action_2], User::SUPERVISOR => [:action_3, :action_4]}
+  def self.access_control modules="", permissions={}
+    permit "account"
+    permit modules
+
+    all_actions = []
+    permissions.each do |role, actions|
+      permit role.to_s, :only => actions
+      all_actions << actions
+    end
+    permit User::SUPER_USER, :except => all_actions.flatten
+  end
+
+  private
+  def use_identity_map
+    if ApplicationConfiguration.get(:identity_map_enabled)
+      ActiveRecord::IdentityMap.use do
+        yield
+      end
+    else
+      yield
+    end
+  end
+
+  def allow_if condition
+    if condition
+      yield if block_given?
+    else
+      no_access_response
+    end
+  end
+
+  def require_user
+    unless current_user
+      flash[:notice] = "The page you tried to access requires a login."
+
+      if request.xhr?
+        render_javascript_redirect_to_login
+      else
+        store_location
+        redirect_to no_access_page
+      end
+
+      return false
+    end
+  end
+
+  def subsite_access?
+    current_user.desktop_access?
+  end
+
+  def subsite_access_denied_message
+    "The page you tried to access requires Computer Terminal Access."
+  end
+
+  def require_subsite_access
+    if current_user && !subsite_access? && !current_user.nulogy?
+      flash[:error] = subsite_access_denied_message
+      current_user.reset_persistence_token!
+      redirect_to no_access_page
+      return false
+    end
+  end
+
+  def not_expired
+    if current_user.try(:expired?)
+      unless ['users', 'user_sessions'].include? params[:controller]
+        flash[:notice] = 'Your password has expired. Please enter a new one'
+        redirect_to edit_user_path(current_user)
+      end
+    end
+  end
+
+  def require_valid_ip
+    if current_user and ip_not_allowed?(current_user, request)
+      flash[:error] = "You do not have access to PackManager from this location."
+      current_user.reset_persistence_token!
+      redirect_to no_access_page
+      return false
+    end
+  end
+
+  def check_permissions
+    action = request.parameters['action']
+    controller = request.parameters['controller']
+    @options = {}
+    handle_redirection unless Permission.permitted?(controller, action, current_user)
+  end
+
+  def store_location
+    if request.post?
+      session[:return_to] = request.referrer
+    else
+      session[:return_to] = request.fullpath
+    end
+  end
+
+  def redirect_back_or_default(default)
+    redirect_to(session[:return_to] || default)
+    session[:return_to] = nil
+  end
+
+  public
+
+  # Inline a rjs tempalte into your controller by calling your rjs methods inside the block.
+  # * name specifies the name of the action
+  # Note that instance variables defined in the block that is passed
+  # in to this method will NOT be seen by the view!  Use locals instead.
+  # This is because Rails actually copies instance variables from the
+  # controller to the view when rendering and we're invoking the block
+  # after the rendering has started.
+  def self.in_line_ajax_action name, &block
+    define_method(name.to_s) do
+      controller = self
+      respond_to do |f|
+        f.js do
+          render :update do |page|
+            controller.instance_exec(page, &block)
+          end
+        end
+      end
+    end
+  end
+
+  # Note that this method requires two things:
+  #  * A <div> for displaying errors (id specified by the :error_div option or "page_title_error_#{object}" by default)
+  #  * The view in_place_editor must specify the :html_response option
+  def self.in_place_valid_edit_for(object, attribute, options = {})
+    define_method("set_#{object}_#{attribute}") do
+      find_options = {:id => params[:id]}
+      clazz = object.to_s.camelize.constantize
+
+      if permit?(User::SUPER_USER)
+        # do nothing - allow all access
+      elsif clazz == Account
+        find_options.merge! :id => -1 if current_user.account_id != params[:id].to_i
+      elsif clazz.new.respond_to? :site_id
+        find_options.merge! :site_id => current_user.site_id
+      else
+        find_options.merge! :account_id => current_user.account_id
+      end
+
+      @item = clazz.find(:first, :conditions => find_options)
+
+      unless @item
+        render :update do |page|
+          page << "window.location.href = '/user_sessions/destroy';"
+        end
+        return
+      end
+
+      previous_value = @item[attribute]
+      @item[attribute] = params[:value]
+      error_div = options[:error_div] || "page_title_error_#{object.to_s}"
+
+      unless @item.save
+        @item[attribute] = previous_value
+        render :update do |page|
+          page.replace_html(error_div, error_messages_for(:item))
+          page.replace_html "#{object.to_s}_#{attribute}_#{@item.id}_in_place_editor", h(previous_value)
+        end
+      else
+        render :update do |page|
+          page.replace_html( error_div, "")
+          page.replace_html "#{object.to_s}_#{attribute}_#{@item.id}_in_place_editor", h(@item[attribute])
+        end
+      end
+    end
+  end
+
+  def self.auto_complete_location_association(owner)
+    auto_complete_association_for(owner, :location, :name, {}) do |controller, find_options|
+      controller.send(:current_user).site.locations.find(:all, find_options)
+    end
+  end
+
+  def self.auto_complete_subcomponent_association
+    # TODO: might need another method that returns the sku list when #564 is implemented
+    auto_complete_sku_association_for(:bom_item, :subcomponent, :code)
+  end
+
+  def self.auto_complete_sku_association_for(owner, object = :sku, method = :code, options = {})
+    auto_complete_association_for(owner, object, method, options) do |controller, find_options|
+      controller.send(:current_user).account.skus.active.find(:all, find_options)
+    end
+  end
+
+  def self.auto_complete_association_for(owner, object, method, options = {})
+    define_method("auto_complete_for_#{object}_#{method}") do
+      find_options = {
+        :conditions => [ "LOWER(#{method}) LIKE ?", params[object][method].downcase + '%' ],
+        :order  => "#{method} ASC",
+        :limit  => 10
+      }.merge!(options)
+
+      @entries = yield(self, find_options)
+      render :inline => "<%= indexed_auto_complete_result @entries, '#{owner}_#{object}_id', '#{method}', 'id' %>"
+    end
+  end
+
+  def self.in_place_association_edit_for(object, attribute, referenced_object, referenced_object_attribute, nil_text = nil)
+    # method to set a new value
+    define_method("set_#{object}_#{attribute}") do
+      @item = object.to_s.camelize.constantize.find(params[:id])
+      @referenced_item = referenced_object.to_s.camelize.constantize.find(
+        :first, :conditions => {:id => params[:value]})
+      @item.update_attribute(attribute, @referenced_item)
+
+      if @referenced_item
+        render :text => @referenced_item.send(referenced_object_attribute).to_s
+      else
+        render :text => nil_text
+      end
+    end
+
+    # method used to get the collection of ids and values to populate the drop down with
+    define_method("get_#{object}_#{attribute}_collection") do
+      collection = yield self
+      collection.unshift([-1, nil_text]) if nil_text
+    end
+  end
+
+  protected
+
+
+  def not_found
+    render :file => "#{Rails.root}/public/404.html", :status => 404, :layout => false
+  end
+
+  def render_404
+    render "public/404.html", :status => 404, :layout => false
+  end
+
+  def render_408
+    if request.xhr?
+      render :update do |page|
+        page.redirect_to "/408"
+      end
+    else
+      render 'public/408.html', :status => 408, :layout => false
+    end
+  end
+
+  def rescue_action(exception)
+    log_error(exception) if logger
+    erase_results if performed?
+
+    if consider_all_requests_local || local_request?
+      rescue_action_locally(exception)
+    else
+      rescue_action_in_public(exception)
+    end
+  end
+
+  # if using this method to check the validity of date params
+  # make sure to check to see if the @error_object has errors
+  # before using the date params.
+  def parse_date_param name, default = nil, hash=params
+    date = hash[name]
+    if date.blank?
+      date = default
+    else
+      date = parse_localized_time date.to_s # to_s in case tests pass in a time object
+    end
+    hash[name] = date
+  rescue ArgumentError
+    @error_object ||= Account.new
+    @error_object.errors.add(name, "is an invalid date.")
+    date
+  end
+
+  # if using this method, don't forget to explicitly call <code>return</code> afterwards!
+  def internal_redirect_to (options={})
+    params.merge!(options)
+    c = "#{params[:controller]}_controller".classify.constantize.new
+    # Hack fixed for Rails 3
+    c.request = request
+    c.response = response
+    (c).process(options[:action])
+    c.instance_variables.each{|v| self.instance_variable_set(v,c.instance_variable_get(v))}
+  end
+
+  def no_access_response
+    flash[:error] = _("You do not have permission to access this functionality.")
+    if request.xhr?
+      render_javascript_redirect_to_login
+    else
+      redirect_to no_access_page
+    end
+  end
+
+  private
+
+  # this method is used to recalculate the ordering of user-sorted lists (bom items) when
+  # the user drags and drops
+  def order_items table_id
+    index = 1
+    params[table_id].each do |id|
+      bi = yield id
+      if bi
+        bi.update_attribute :position, index
+        index = index + 1
+      end
+    end
+    render :nothing => true
+  end
+
+  def ip_not_allowed? user, req
+    !user.allowed_ip?(req.remote_ip)
+  rescue
+    log_error $!
+    true
+  end
+
+  def log_error e
+    logger.error e.message
+    logger.error e.backtrace.join("\n")
+  end
+
+  def no_access_page
+
+    # Rails mutates the strings we pass into the router, which can cause bugs. So we have to duplicate the hash before letting rails get its grubby hands on things
+
+    if @current_user.present?
+      @current_user.customer? ? main_app.announcements_path : main_app.workflows_path
+    else
+      main_app.new_user_session_path
+    end
+  end
+
+  def render_javascript_redirect_to_login
+    path = no_access_page
+    render :update do |page|
+      page.redirect_to path
+    end
+  end
+
+  def render_autocomplete_json objects, attribute
+    render :json => objects.map{ |obj| { :label => obj[attribute], :value => obj[attribute] } }
+  end
+
+  def serialize_array arr
+    ActiveModel::ArraySerializer.new(arr).to_json
+  end
+end

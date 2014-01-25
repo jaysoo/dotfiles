@@ -1,0 +1,5 @@
+module Quoting
+  class Quote < ActiveRecord::Base
+    attr_accessible :customer_id, :effective_date, :quoter
+  end
+end

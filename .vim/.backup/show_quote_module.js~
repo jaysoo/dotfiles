@@ -1,0 +1,44 @@
+define("Quoting.ShowQuote", function(module){
+  var withLoading = require("WithLoadingWrapper").getFactoryWrapper()
+  var au = require("AngularUtils")
+
+  var common = require("AngularCommon")
+  var nuErrors = require("AngularErrors")
+  var i18n = require("AngularI18n")
+  var dialog = require("AngularDialog")
+  var ajaxWrapper = require("AngularAjaxWrapper")
+  var uiBootstrap = angular.module('ui.bootstrap')
+  var numbers = angular.module("AngularNumbers")
+
+  var m = angular.module("ShowQuote", au.names(common, nuErrors, i18n, uiBootstrap, dialog, ajaxWrapper, numbers))
+
+  m.controller("QuoteCtrl", [
+    'quoteStatuses',
+    'quote',
+    'quotesRepo',
+    require("Quoting.QuoteCtrl")
+  ])
+
+  m.factory("quotesRepo", [
+    '$http',
+    'nuErrorCallback',
+    '$q',
+    require("Quoting.QuotesRepo")
+  ])
+
+  m.controller("QuoteChargeItemsCtrl", [
+    'quote',
+    'quotesRepo',
+    '$rootScope',
+    require("Quoting.QuoteChargeItemsCtrl")
+  ])
+
+  m.controller("ChargeItemFormCtrl", [
+    '$rootScope',
+    'quotesRepo',
+    'quote',
+    require('Quoting.ChargeItemFormCtrl')
+  ])
+
+  module.exports = m
+})

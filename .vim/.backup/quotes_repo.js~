@@ -1,0 +1,20 @@
+define("Quoting.QuotesRepo", function (module) {
+  var ErrorSetter = require("ErrorSetter")
+
+  module.exports = function ($http, nuErrorCallback) {
+    return {
+      create: function (data) {
+        var payload = {
+          customer: data.customer,
+          item: data.item,
+          effective_date: data.effectiveDate,
+          quoter: data.quoter
+        }
+        var errorCallback = nuErrorCallback(
+          ErrorSetter.create(data, {root: 'error_object'})
+        )
+        return $http.post('/quoting/quotes/create', payload)['catch'](errorCallback)
+      }
+    }
+  }
+})

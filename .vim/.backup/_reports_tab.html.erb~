@@ -1,0 +1,110 @@
+<a href="#" class="dropdown-toggle" data-toggle="dropdown"><%= s_("MENU|Reports") %></a>
+  <ul class="dropdown-menu">
+    <div class="toptriangle"></div>
+    <li class="popout">
+      <%= link_to((s_("MENU|Bookmarks") + " &rsaquo;").html_safe, '#', :class=> "popout-toggle lazy-load", "data-url" => main_app.menu_list_bookmarks_path, "data-destination" => "#nav_bookmarks_list") %>
+      <ul id="nav_bookmarks_list" class="popout-menu">
+      </ul>
+    </li>
+    <li class="divider"></li>
+    <% if permit? 'mod_inventory' and
+      (permit? "lead" or permit? "financials_read" or
+        (current_user.customer and permit? 'customer' and
+          (current_user.customer.customer_access_configuration.has_receive_order? or
+            current_user.customer.customer_access_configuration.has_availability? or
+            current_user.customer.customer_access_configuration.has_current_inventory? or
+            current_user.customer.customer_access_configuration.has_ship_order? or
+            current_user.customer.customer_access_configuration.has_shipped_item? or
+            current_user.customer.customer_access_configuration.has_receipt_item?
+          )
+        )
+      )
+    %>
+    <li class="popout">
+    <%= link_to((s_("MENU|Inventory") + " &rsaquo;").html_safe, "#", :class => "popout-toggle") %>
+    <ul class="popout-menu">
+      <% inventory_report_links(current_user).each do |link| %>
+        <li><%= link_to(link[0], link[1]) %></li>
+      <% end %>
+    </ul>
+    </li>
+  <% end %>
+  <% if permit? 'supervisor and mod_planning' %>
+    <li class="popout">
+    <%= link_to((s_("MENU|Planning") + " &rsaquo;").html_safe, "#", :class => "popout-toggle") %>
+      <ul class="popout-menu">
+        <li><%= link_to(s_("MENU|Available to promise"), main_app.available_to_promise_planning_reports_path) %></li>
+        <li><%= link_to(s_("MENU|Expected finished good availability"), main_app.expected_finished_good_availability_planning_reports_path) %></li>
+        <li><%= link_to(s_("MENU|Materials requirements planning"), main_app.material_requirements_planning_planning_reports_path) %></li>
+        <li><%= link_to(s_("MENU|Expected subcomponent availability"), main_app.expected_subcomponent_availability_planning_reports_path) %></li>
+        <li class="divider"></li>
+        <% if permit? "setting_allow_can_run" %>
+        <li><%= link_to(s_("MENU|Can run"), main_app.can_run_report_planning_reports_path)  %></li>
+        <% end %>
+        <% if permitted? "ship_order_subcomponent_requirements_report", "show" %>
+          <li><%= link_to(s_("MENU|Ship order subcomponent requirements"), main_app.ship_order_subcomponent_requirements_report_path) %></li>
+        <% end %>
+        <li><%= link_to(s_("MENU|Subcomponent shortage"), main_app.subcomponent_shortage_planning_reports_path) %></li>
+      </ul>
+    </li>
+  <% end %>
+  <% if permit? 'lead or financials_read' or
+        (current_user.customer and permit? 'customer' and
+            current_user.customer.customer_access_configuration.has_job_productivity? or
+            current_user.customer.customer_access_configuration.has_project_status? or
+            current_user.customer.customer_access_configuration.has_production_report?) %>
+    <li class="popout">
+    <%= link_to((s_("MENU|Production") + " &rsaquo;").html_safe, "#", :class => "popout-toggle") %>
+      <ul class="popout-menu">
+        <% production_report_links(current_user).each do |link| %>
+          <li><%= link_to(link[0], link[1]) %></li>
+        <% end %>
+      </ul>
+    </li>
+  <% end %>
+  <li class="divider"></li>
+  <% if permitted? "canned_reports", "labor_report" %>
+    <li><%= link_to(s_("MENU|Labor"), main_app.labor_report_canned_reports_path) %></li>
+  <% end %>
+  <% if current_user.customer %>
+    <% if current_user.customer.customer_access_configuration.has_edi_transaction? %>
+      <li class="popout">
+        <%= link_to((s_("MENU|Edi")  + " &rsaquo;").html_safe, "#", :class => "popout-toggle") %>
+        <ul class="popout-menu">
+          <li><%= link_to(s_("MENU|Outbound edi transactions"), main_app.edi_transaction_report_path) %></li>
+        </ul>
+      </li>
+    <% end %>
+  <% else %>
+    <% if permitted? "edi_transaction_report", "show" %>
+      <li class="popout">
+        <%= link_to((s_("MENU|Edi") + " &rsaquo;").html_safe, "#", :class => "popout-toggle") %>
+        <ul class="popout-menu">
+          <% if permitted? "edi_transaction_report", "show" %>
+            <li><%= link_to(s_("MENU|Outbound edi transactions"), main_app.edi_transaction_report_path) %></li>
+          <% end %>
+        </ul>
+      </li>
+    <% end %>
+  <% end %>
+  <% if current_user.nulogy? %>
+    <li class="divider"></li>
+    <li class="popout">
+      <%= link_to((s_("MENU|Billing") + " &rsaquo;").html_safe, "#", :class => "popout-toggle") %>
+      <ul class="popout-menu">
+        <li><%= link_to(s_("MENU|Edi activity"), main_app.edi_activity_report_path) %></li>
+      </ul>
+  <% end %>
+
+  <% if permitted? "reports", "true_efficiency" %>
+    <li class="divider"></li>
+     <li><%= link_to(s_("MENU|True Efficiency"),  main_app.reports_true_efficiency_path) %></li>
+  <% end %>
+
+  <% if current_user.customer and permit? "customer" and current_user.customer.customer_access_configuration.has_lindt_project_status? %>
+    <li><%= link_to(s_("MENU|Project status"), main_app.lindt_reports_project_status_production_reports_path) %></li>
+  <% end %>
+  <% if current_user.customer and permit? "customer" and current_user.customer.customer_access_configuration.has_fujifilm_project_status? %>
+    <li><%= link_to(s_("MENU|Project status"), main_app.fuji_reports_project_status_production_reports_path) %></li>
+  <% end %>
+  </ul>

@@ -1,0 +1,47 @@
+define(function() {
+'use strict';
+
+  var d = function() {
+    return {
+      restrict: 'E',
+
+      transclude: true,
+
+      template: '<template>\n' +
+                '<style>\n' +
+                  'div { padding: 10px; font-family: "Comic Sans MS", "Comic Sans"; background-color: #777 }' +
+                  'p { margin: 0; padding: 0; color: white }\n' +
+                  'p:nth-child(2n+1) { color: pink }\n' +
+                  'p:nth-child(3n+1) { color: purple }\n' +
+                  'p:nth-child(4n+1) { color: yellow }\n' +
+                  'p:nth-child(5n+1) { color: green }\n' +
+                '</style>' +
+                '<div></div>\n' +
+                '</template>',
+
+      link: function($scope, $element, $attrs, ctrl, transclude) {
+        transclude($scope, function(clone) {
+          var element = $element[0];
+          var template = $element.find('template')[0];
+
+          var sentences =  clone.html().split('\n');
+
+          sentences.forEach(function(sentence) {
+            sentence = sentence.trim();
+            if (sentence) {
+              var p = angular.element('<p>' + sentence + '</p>')[0];
+              template.content.querySelector('div').appendChild(p);
+            }
+          });
+
+          $element.html('');
+
+          var root = element.webkitCreateShadowRoot();
+          root.innerHTML = template.innerHTML;
+        });
+      }
+    };
+  };
+
+  return d;
+});

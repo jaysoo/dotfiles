@@ -1,0 +1,152 @@
+module Jobs::Efficiency
+  ACTIVE_JOBS_PER_PAGE = 12
+
+  ACTUAL_STARTING_DATE_DESC = "actual_starting_date_desc"
+  ACTUAL_STARTING_DATE_ASC = "actual_starting_date_asc"
+  CUSTOMERS_NAME_ASC = "customers_name_asc"
+  CUSTOMERS_NAME_DESC = "customers_name_desc"
+  ITEM_CODE_ASC = "item_code_asc"
+  ITEM_CODE_DESC = "item_code_desc"
+  LINE_NAME_ASC = "line_name_asc"
+  LINE_NAME_DESC = "line_name_desc"
+  PROJECT_CODE_ASC = "project_code_asc"
+  PROJECT_CODE_DESC = "project_code_desc"
+
+  SORT_BY_SELECTIONS = [
+    [N_("JOBS_EFFICIENCY_SORT_OPTION|Actual start date (newest first)"), ACTUAL_STARTING_DATE_DESC],
+    [N_("JOBS_EFFICIENCY_SORT_OPTION|Actual start date (oldest first)"), ACTUAL_STARTING_DATE_ASC],
+    [N_("JOBS_EFFICIENCY_SORT_OPTION|Customer (A-Z)"), CUSTOMERS_NAME_ASC],
+    [N_("JOBS_EFFICIENCY_SORT_OPTION|Customer (Z-A)"), CUSTOMERS_NAME_DESC],
+    [N_("JOBS_EFFICIENCY_SORT_OPTION|Item (A-Z)"), ITEM_CODE_ASC],
+    [N_("JOBS_EFFICIENCY_SORT_OPTION|Item (Z-A)"), ITEM_CODE_DESC],
+    [N_("JOBS_EFFICIENCY_SORT_OPTION|Line name (A-Z)"), LINE_NAME_ASC],
+    [N_("JOBS_EFFICIENCY_SORT_OPTION|Line name (Z-A)"), LINE_NAME_DESC],
+    [N_("JOBS_EFFICIENCY_SORT_OPTION|Project (A-Z)"), PROJECT_CODE_ASC],
+    [N_("JOBS_EFFICIENCY_SORT_OPTION|Project (Z-A)"), PROJECT_CODE_DESC]
+  ]
+
+  SORT_BY_QUERY_PARAMS = {
+    ACTUAL_STARTING_DATE_DESC => {:order_by => "jobs.started_at", :order_direction => "desc", :include => []},
+    ACTUAL_STARTING_DATE_ASC => {:order_by => "jobs.started_at", :order_direction => "asc", :include => []},
+    CUSTOMERS_NAME_DESC => {:order_by => "customers.name", :order_direction => "desc", :include => [{:project => [:customer]}]},
+    CUSTOMERS_NAME_ASC => {:order_by => "customers.name", :order_direction => "asc", :include => [{:project => [:customer]}]},
+    ITEM_CODE_DESC => {:order_by => "skus.code", :order_direction => "desc", :include => [{:project => [:sku]}]},
+    ITEM_CODE_ASC => {:order_by => "skus.code", :order_direction => "asc", :include => [{:project => [:sku]}]},
+    LINE_NAME_DESC => {:order_by => "locations.name", :order_direction => "desc", :include => [{:line => [:location]}]},
+    LINE_NAME_ASC => {:order_by => "locations.name", :order_direction => "asc", :include => [{:line => [:location]}]},
+    PROJECT_CODE_DESC => {:order_by => "projects.code", :order_direction => "desc", :include => [:project]},
+    PROJECT_CODE_ASC => {:order_by => "projects.code", :order_direction => "asc", :include => [:project]}
+  }
+
+  def self.included base
+    base.extend ClassMethods
+  end
+
+  def calculate_efficiency(options={})
+    expected_units = expected_units_given_actual_personnel(options)
+    return 0 if expected_units == 0
+    units_produced(options) / expected_units
+  end
+
+  module ClassMethods
+    def expected_active_jobs_count(site, start, finish)
+      site.jobs.count(:conditions => ["scheduled_start_at <= ? AND scheduled_end_at >= ?", finish, start])
+    end
+
+    def active_jobs_for_page(site, options={})
+      query_params = construct_query_params options
+
+      site.jobs.paginate\
+        :conditions => ["jobs.status = :job_status", {:job_status => Job::STARTED}],
+        :include => query_params[:include],
+        :order => "#{query_params[:order_by]} #{query_params[:order_direction]}, jobs.started_at DESC, jobs.scheduled_start_at DESC, jobs.id DESC",
+        :page => query_params[:page],
+        :per_page => ACTIVE_JOBS_PER_PAGE
+    end
+
+  private
+    def construct_query_params(options)
+      query_params = SORT_BY_QUERY_PARAMS[LINE_NAME_ASC].dup
+      query_params[:page] = options[:page].blank? ? 1 : options[:page]
+      query_params.merge!(SORT_BY_QUERY_PARAMS[options[:sort_by]]) if SORT_BY_QUERY_PARAMS.has_key?(options[:sort_by])
+      query_params
+    end
+  end
+
+  class << self
+    def generate_graphs(jobs)
+      graphs = {}
+      jobs.each do |j|
+        graphs[j] = generate_graph j
+      end
+      graphs
+    end
+
+    def generate_graph(job, et=Time.zone.now, duration=7.hours)
+      times = generate_times et, duration
+
+      x = times.map{|t| t.strftime("%l").lstrip}
+      x << s_("AXIS_LBL|Job")
+
+      below = Array.new(x.size, 0.0)
+      above = Array.new(x.size, 0.0)
+      below_job = Array.new(x.size, 0.0)
+      above_job = Array.new(x.size, 0.0)
+
+      return [x, below, above, below_job, above_job] if job.started_at.nil?
+
+      times.each_with_index do |t, i|
+        if t >= job.started_at
+          eff = calculate_efficiency times, t, et, job
+          eff >= 100.0 ? above[i] = eff : below[i] = eff
+        end
+      end
+
+      current_eff = job.calculate_efficiency(:end => et) * 100
+      current_eff >= 100.0 ? above_job[x.size-1] = current_eff : below_job[x.size-1] = current_eff
+
+      [x, below, above, below_job, above_job]
+    end
+
+    def generate_hourly_metrics(job, et=Time.zone.now, duration=7.hours)
+      times = generate_times et, duration
+
+      x = times.map{|t| t.strftime("%l:%M %P").lstrip}
+
+      result = []
+      return result if job.started_at.nil?
+
+      times.each_with_index do |t, i|
+        # if t >= job.started_at
+          eff = calculate_efficiency times, t, et, job
+          result << HourlyEfficiency.new(x[i], eff)
+        # end
+      end
+
+      result
+    end
+
+    private
+
+    def calculate_efficiency times, current_time, end_time, job
+      end_of_interval = (times.last == current_time) ? end_time : current_time+1.hour # prorate the last hour
+      eff = job.calculate_efficiency(:start => current_time, :end => end_of_interval) * 100
+    end
+
+    def generate_times end_time, duration
+      st = end_time - duration
+      st = st.change(:min => 0)
+
+      times = [st]
+      next_time = st
+      while next_time <= end_time
+        times << next_time if next_time > times.last
+        next_time = next_time + 1.hour
+      end
+
+      times
+    end
+
+    HourlyEfficiency = Struct.new(:hour, :efficiency)
+  end
+end

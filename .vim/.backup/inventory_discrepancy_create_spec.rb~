@@ -1,0 +1,25 @@
+require "spec_helper"
+
+describe "Inventory disrepancy create", :type => :request, js: true do
+  before do
+    login
+    default_site.update_attributes :inventory => true, :external_pallet_numbers => Site::ALPHANUMERIC, :add_receipt_items_automatically => false, :production_picking => true
+  end
+
+  it "should work" do
+    goto InventoryDiscrepancyNewPage.new do
+      fill_in_location(default_location.name)
+      fill_in_pallet_number("12345")
+      fill_in_sku_code(default_sku.code)
+      fill_in_lot_code("")
+      fill_in_expiry_date("")
+      select_status("Good")
+      fill_in_quantity("10")
+      select_uom("Eaches")
+
+      click_button "Create Adjustment"
+
+      page.should have_no_content "Create Adjustment"
+    end
+  end
+end

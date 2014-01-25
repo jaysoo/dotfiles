@@ -1,0 +1,75 @@
+require File.expand_path(File.dirname(__FILE__) + '/../test_helper')
+
+class AuthorizationController < ApplicationController
+  def test
+    @done = true
+    render :text => 'hi!'
+  end
+end
+
+class AuthorizationControllerTest < ActionController::TestCase
+  def setup
+    @user = login
+    @site = @user.site
+    @account = @user.account
+  end
+
+  def test_default_permissions
+    assert_equal 0, Permission.count
+
+    get :test
+    assert_response :success
+    assert_equal true, assigns(:done)
+  end
+
+  def test_default_permissions_no_access
+    assert_equal 0, Permission.count
+    @user.update_attributes! :role => User::COMPANY_ADMIN
+
+    get :test
+    assert_response :redirect
+    assert_redirected_to no_access_page
+    assert_equal nil, assigns(:done)
+  end
+
+  def test_permissions
+    Permission.create! :controller => 'authorization', :action => 'test', :role_production => User::LEAD
+    @user.update_attributes! :role => User::LEAD, :financial_access => User::FINANCIAL_ACCESS_NONE
+
+    get :test
+    assert_response :success
+    assert_equal true, assigns(:done)
+  end
+
+  def test_permissions_no_access
+    Permission.create! :controller => 'authorization', :action => 'test', :require_mod_inventory => true
+
+    get :test
+    assert_response :redirect
+    assert_redirected_to no_access_page
+    assert_equal nil, assigns(:done)
+  end
+
+  def test_disabled_account
+    Permission.create! :controller => 'authorization', :action => 'test', :role_production => User::LEAD
+    @user.update_attributes! :role => User::LEAD, :financial_access => User::FINANCIAL_ACCESS_NONE
+    @account.update_attributes! :active => false
+
+    get :test
+    assert_response :redirect
+    assert_redirected_to new_user_session_path
+    assert_equal nil, assigns(:done)
+  end
+
+  def test_disabled_user
+    Permission.create! :controller => 'authorization', :action => 'test', :role_production => User::LEAD
+    @user.update_attributes! :role => User::LEAD, :financial_access => User::FINANCIAL_ACCESS_NONE, :active => false
+
+    get :test
+    assert_response :redirect
+    assert_redirected_to new_user_session_path
+    assert_equal nil, assigns(:done)
+  end
+
+end
+

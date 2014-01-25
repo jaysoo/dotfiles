@@ -1,0 +1,11 @@
+define("Quoting.CreateQuoteCtrl", function(module) {
+  function CreateQuoteCtrl(quotesRepo) {
+    this.quotesRepo = quotesRepo
+  }
+
+  CreateQuoteCtrl.prototype.createQuote = function(formData) {
+    this.quotesRepo.create(formData)
+  }
+
+  module.exports = CreateQuoteCtrl
+})

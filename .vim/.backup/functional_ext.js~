@@ -1,0 +1,82 @@
+define("FunctionalExt", function (module) {
+  var F = {
+    skipEmpty: function (func, opts) {
+      var opts = opts || {empty: null}
+      return function () {
+        var args = _.toArray(arguments)
+        if (_.some(args, F.empty)) {
+          return opts.empty
+        } else {
+          return func.apply(null, args)
+        }
+      }
+    },
+
+    empty: function (val) {
+      return val ? false : true;
+    },
+
+    value: function (val) {
+      return function () {
+        return val;
+      }
+    },
+
+    invoke: function (funcName) {
+      return function (receiver) {
+        var func = receiver[funcName]
+        return func.apply(receiver)
+      }
+    },
+
+    dot: function (propName) {
+      return function (receiver) {
+        return receiver[propName]
+      }
+    },
+
+    dotSet: function (propName, value) {
+      return function (receiver) {
+        receiver[propName] = value
+      }
+    },
+
+    attr: function (attrName) {
+      return function (receiver) {
+        return receiver.get(attrName)
+      }
+    },
+
+    setAttr: function (attrName, value) {
+      return function (receiver) {
+        return receiver.set(attrName, value)
+      }
+    },
+
+    nanToNull: function (a) {
+      return _.isNaN(a) ? null : a
+    },
+
+    matchJson: function(expression, expectedValue){
+      return function(json){
+        var properties = expression.split(".");
+
+        var extractedValue =_.reduce(properties, function(curr, property){
+          return _.isUndefined(curr) ? undefined : curr[property];
+        }, json);
+
+        return extractedValue == expectedValue;
+      };
+    },
+
+    second: _.compose(_.first, _.rest),
+
+    sum: function(values) {
+      return _.reduce(values, function(sum, value) {
+        return sum + value
+      }, 0)
+    }
+  }
+
+  module.exports = F
+})

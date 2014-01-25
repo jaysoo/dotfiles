@@ -1,0 +1,50 @@
+define("WithLoadingWrapper", function (module) {
+    var WithLoadingWrapper = function (overlayManager) {
+      return {
+        wrap: function (objectToWrap) {
+          debugger
+          var funcs = _.pairs(objectToWrap);
+
+          var withLoading = function (callback) {
+            overlayManager.showLoadingOverlay()
+            var future = callback.apply(this)
+            future.then(overlayManager.hideLoadingOverlay, overlayManager.hideLoadingOverlay)
+            return future;
+          }
+
+          return _.reduce(funcs, function (wrapper, pair) {
+            var funcName = pair[0];
+            var func = pair[1];
+
+            wrapper[funcName] = function () {
+              var args = arguments
+              return withLoading(function () {
+                return func.apply(objectToWrap, args)
+              })
+            }
+
+            return wrapper
+          }, {})
+        }
+      }
+    }
+
+    var W = {
+      getWrapper: function(){
+        return new WithLoadingWrapper(require('OverlayManager')).wrap
+      },
+
+      getFactoryWrapper: function(){
+        return function(factory){
+          var w = W.getWrapper()
+          return function(){
+            var args = _.toArray(arguments)
+            return w(factory.apply(factory, args))
+          }
+        }
+      }
+    }
+
+    module.exports = W
+  }
+)

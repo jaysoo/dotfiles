@@ -1,0 +1,664 @@
+# Please install the Engine Yard Capistrano gem
+# gem install eycap --source http://gems.engineyard.com
+
+require 'eycap/recipes'
+require 'new_relic/recipes'
+
+# Removed stock bundler because engine yard capistrano handles bundling itself
+# but this line is needed to use bundler with rake properly on the commandline.
+set :rake, "bundle exec rake"
+
+# =============================================================================
+# ENGINE YARD REQUIRED VARIABLES
+# =============================================================================
+# You must always specify the application and repository for every recipe. The
+# repository must be the URL of the repository you want this recipe to
+# correspond to. The :deploy_to variable must be the root of the application.
+
+set :keep_releases, 5
+set :application,   'nulogy'
+set :user,          'nulogy'
+set :password,      'nul5stit'
+set :deploy_to,     "/data/#{application}"
+set :deploy_via,    :remote_cache
+set :repository_cache,    "/var/cache/engineyard/#{application}"
+set :monit_group,   'nulogy'
+set :scm,           :git
+set :scm_verbose, true
+
+if ENV["USE_GITHUB"] == "true"
+  set :repository, "git@github.com:nulogy/packmanager.git"
+else
+  set :repository, "ssh://readonlycode@internal.nulogy.ca:2222/home/code/packmanager.git"
+end
+
+set :production_database,'nulogy_production'
+set :production_dbhost, 'nulogy-psql-production-master'
+
+set :production_eu_dbhost, 'nulogy-psql-production-euro-master'
+
+set :staging_database, 'nulogy_staging'
+set :staging_dbhost, 'nulogy-psql-staging-master'
+#set :staging_dbhost, 'psql82-staging-1'
+
+set :demo_database, 'nulogy_demo'
+set :demo_dbhost,   'nulogy-psql-staging-master'
+
+set :dbuser, 'nulogy_db'
+set :dbpass, 'occ5zead'
+# Commented out because EY changed how their version of capistrano honours the bundle_without clause. If they ever fix it to match how normal capistrano does it, uncomment the one directly below and comment out the one under it.
+# set :bundle_without, [:test, :quick_test]
+set :bundle_without, 'test quick_test'
+set :bundle_roles, [:app]
+
+set :rails_env, 'production'
+# comment out if it gives you trouble. newest net/ssh needs this set.
+ssh_options[:paranoid] = false
+ssh_options[:forward_agent] = true
+ssh_options[:port] = 2222
+
+set :default_environment, {
+  'LANG' => 'en_US.UTF-8',
+  'LC_ALL' => 'en_US.UTF-8'
+}
+
+# =============================================================================
+# ROLES
+# =============================================================================
+# You can define any number of roles, each of which contains any number of
+# machines. Roles might include such things as :web, or :app, or :db, defining
+# what the purpose of each machine is. You can also specify options that can
+# be used to single out a specific subset of boxes in a particular role, like
+# :primary => true.
+task :production do
+  #Hoptoad API Key
+  ENV["API_KEY"] = "e6aa0761a3fdd8350dbc9be468e8d8e1"
+
+  role :web, '72.46.232.13:7001'
+  role :web, '72.46.232.13:7002'
+  role :web, '72.46.232.13:7003'
+
+  role :app, '72.46.232.13:7001' # 81
+  role :app, '72.46.232.13:7002' # 82
+  role :app, '72.46.232.13:7003' # 83
+
+  # unicorn => false is necessary for unicorn.deploy =(
+  role :background_jobs, '72.46.232.13:7008'
+  role :background_jobs, '72.46.232.13:7011'
+  role :app, '72.46.232.13:7008', :unicorn => false, :resque => true, :resque_web => true, :resque_scheduler => true # 303
+  role :app, '72.46.232.13:7011', :unicorn => false, :resque => true # 349
+  role :db, '72.46.232.13:7001', :primary => true
+
+  set :environment_database, defer { production_database }
+  set :environment_dbhost, defer { production_dbhost }
+  set :cluster, 'production'
+  set :branch, 'production'
+end
+
+task :production_eu do
+  #Hoptoad API Key
+  ENV["API_KEY"] = "12cb09f36d4549b5bcf5bf356ea9da99"
+
+  role :web, '209.251.185.242:7002'
+  role :web, '209.251.185.242:7003'
+
+  role :app, '209.251.185.242:7002'
+  role :app, '209.251.185.242:7003'
+
+  # unicorn => false is necessary for unicorn.deploy =(
+  role :background_jobs, '209.251.185.242:7004'
+  role :app, '209.251.185.242:7004', :unicorn => false, :resque => true, :resque_web => true, :resque_scheduler => true
+  role :db, '209.251.185.242:7002', :primary => true
+
+  set :environment_database, defer { production_database }
+  set :environment_dbhost, defer { production_eu_dbhost }
+  set :cluster, 'production'
+  set :branch, 'production'
+end
+
+task :feedback do
+  #Hoptoad API key
+  ENV["API_KEY"] = "36e5e99af0409bd63700ebfd0bdc87e8"
+  role :web, '209.251.185.244:7000'
+
+  role :app, '209.251.185.244:7000'
+
+  # unicorn => false is necessary for unicorn.deploy =(
+  role :background_jobs, '72.46.232.13:7007'
+  role :app, '72.46.232.13:7007', :unicorn => false, :resque => true, :resque_web => true, :resque_scheduler => true
+  role :db, '209.251.185.244:7000', :primary => true
+
+  set :environment_database, defer { staging_database }
+  set :environment_dbhost, defer { staging_dbhost }
+  set :cluster, 'staging'
+  set :branch, ENV['BRANCH'] || 'release'
+end
+
+task :demo do
+  #Hoptoad API Key
+  ENV["API_KEY"] = "e6aa0761a3fdd8350dbc9be468e8d8e1"
+  set :hoptoad_env, "demo"
+
+  role :web, '72.46.232.13:7000'
+
+  role :app, '72.46.232.13:7000'
+
+  # unicorn => false is necessary for unicorn.deploy =(
+  role :app, '72.46.232.13:7009', :unicorn => false, :resque => true, :resque_web => true, :resque_scheduler => true
+  role :db, '72.46.232.13:7000', :primary => true
+
+  set :environment_database, defer { demo_database }
+  set :environment_dbhost, defer { demo_dbhost }
+  set :cluster, 'demo'
+  set :branch, ENV['BRANCH'] || 'production'
+end
+
+task :staging do
+  role :web, '72.46.232.13:7010'
+  role :app, '72.46.232.13:7010', :unicorn => true, :resque => true, :resque_web => true, :resque_scheduler => true
+  role :db, '72.46.232.13:7010', :primary => true
+
+  set :environment_database, defer { sandbox_database }
+  set :environment_dbhost, defer { sandbox_dbhost }
+  set :cluster, 'sandbox'
+  set :branch, ENV['BRANCH'] || 'dev'
+end
+
+task :'qa-dev' do
+  default_run_options[:pty] = true
+  set :repository, "ssh://readonlycode@porcupine.local/home/code/packmanager.git"
+  set :password, "Nulogy4Ever"
+  set :branch, ENV['BRANCH'] || 'release'
+
+  role :web, 'qa-dev.nu:22'
+  role :app, 'qa-dev.nu:22', :unicorn => true, :resque => true, :resque_scheduler => true, :resque_web => true
+
+  #this just specifies which computer should run the migrations, at least for now.
+  #this might not be what was originally intended, but it's what we're doing now for all the other slices, so I guess we'll keep doing it for QA as well
+  role :db, 'qa-dev.nu:22', :primary => true
+end
+
+task :'new-qa-dev' do
+  # default_run_options[:pty] = true
+  set :password, "Nulogy4Ever"
+  set :branch, ENV['BRANCH'] || 'dev'
+  set :default_environment, {'PATH' => "/usr/local/rvm/gems/ruby-1.9.3-p385/bin:/usr/local/rvm/gems/ruby-1.9.3-p385@global/bin:/usr/local/rvm/rubies/ruby-1.9.3-p385/bin:$PATH"}
+
+  role :web, 'qa-dev.packmanager.nulogy.net:22'
+  role :app, 'qa-dev.packmanager.nulogy.net:22', :unicorn => true, :resque => true, :resque_scheduler => true, :resque_web => true
+
+  role :db, 'qa-dev.packmanager.nulogy.net:22', :primary => true
+end
+
+task :'qa-release' do
+  default_run_options[:pty] = true
+  set :repository, "ssh://readonlycode@porcupine.local/home/code/packmanager.git"
+  set :password, "Nulogy4Ever"
+  set :branch, ENV['BRANCH'] || 'dev'
+
+  role :web, 'qa-release.nu:22'
+  role :app, 'qa-release.nu:22', :unicorn => true, :resque => true, :resque_scheduler => true, :resque_web => true
+
+  role :db, 'qa-release.nu:22', :primary => true
+end
+
+task :'qa-production' do
+  default_run_options[:pty] = true
+  set :repository, "ssh://readonlycode@porcupine.local/home/code/packmanager.git"
+  set :password, "Nulogy4Ever"
+  set :branch, ENV['BRANCH'] || 'production'
+
+  role :web, 'qa-production.nu:22'
+  role :app, 'qa-production.nu:22', :unicorn => true, :resque => true, :resque_scheduler => true, :resque_web => true
+
+  role :db, 'qa-production.nu:22', :primary => true
+end
+
+task :'packmanager-na-latest' do
+  default_run_options[:pty] = true
+  set :repository, "ssh://readonlycode@porcupine.local/home/code/packmanager.git"
+  set :password, "Nulogy4Ever"
+  set :branch, ENV['BRANCH'] || 'production'
+  set :application, 'packmanager-na-latest'
+  set :repository_cache, "/var/cache/engineyard/#{application}"
+  set :deploy_to, "/data/#{application}"
+
+  role :web, 'cohiba.nu:22'
+  role :app, 'cohiba.nu:22', :unicorn => true, :resque => true, :resque_scheduler => true, :resque_web => true
+
+  role :db, 'cohiba.nu:22', :primary => true, :sanitize => true
+end
+
+task :'packmanager-eu-latest' do
+  default_run_options[:pty] = true
+  set :repository, "ssh://readonlycode@porcupine.local/home/code/packmanager.git"
+  set :password, "Nulogy4Ever"
+  set :branch, ENV['BRANCH'] || 'production'
+  set :application, 'packmanager-eu-latest'
+  set :repository_cache, "/var/cache/engineyard/#{application}"
+  set :deploy_to, "/data/#{application}"
+
+  role :web, 'cohiba.nu:22'
+  role :app, 'cohiba.nu:22', :unicorn => true, :resque => true, :resque_scheduler => true, :resque_web => true
+
+  role :db, 'cohiba.nu:22', :primary => true, :sanitize => true
+end
+
+task :'hot-replica-na' do
+  default_run_options[:pty] = true
+  set :repository, "ssh://readonlycode@porcupine.local/home/code/packmanager.git"
+  set :password, "Nulogy4Ever"
+  set :branch, ENV['BRANCH'] || 'authless_for_replica'
+  set :application, 'hot-replica-na'
+  set :deploy_to, "/data/#{application}"
+  set :repository_cache, "/var/cache/engineyard/#{application}"
+  set :replica, true
+
+  role :web, 'cohiba.nu:22'
+  role :app, 'cohiba.nu:22', :unicorn => true, :resque => false, :resque_scheduler => false, :resque_web => false
+
+  role :db, 'cohiba.nu:22', :primary => true, :sanitize => false
+end
+
+task :'hot-replica-eu' do
+  default_run_options[:pty] = true
+  set :repository, "ssh://readonlycode@porcupine.local/home/code/packmanager.git"
+  set :password, "Nulogy4Ever"
+  set :branch, ENV['BRANCH'] || 'authless_for_replica'
+  set :application, 'hot-replica-eu'
+  set :deploy_to, "/data/#{application}"
+  set :repository_cache, "/var/cache/engineyard/#{application}"
+  set :replica, true
+
+  role :web, 'cohiba.nu:22'
+  role :app, 'cohiba.nu:22', :unicorn => true, :resque => false, :resque_scheduler => false, :resque_web => false
+
+  role :db, 'cohiba.nu:22', :primary => true, :sanitize => false
+end
+
+task :'qa-tf1' do
+  default_run_options[:pty] = true
+  set :repository, "ssh://readonlycode@porcupine.local/home/code/packmanager.git"
+  set :password, "Nulogy4Ever"
+  set :branch, ENV['BRANCH'] || 'release'
+
+  role :web, 'qa-tf1.nu:22'
+  role :app, 'qa-tf1.nu:22', :unicorn => true, :resque => true, :resque_scheduler => true, :resque_web => true
+
+  role :db, 'qa-tf1.nu:22', :primary => true
+end
+
+task :'qa-tf2' do
+  default_run_options[:pty] = true
+  set :repository, "ssh://readonlycode@porcupine.local/home/code/packmanager.git"
+  set :password, "Nulogy4Ever"
+  set :branch, ENV['BRANCH'] || 'wms_base'
+
+  role :web, 'qa-tf2.nu:22'
+  role :app, 'qa-tf2.nu:22', :unicorn => true, :resque => true, :resque_scheduler => true, :resque_web => true
+
+  role :db, 'qa-tf2.nu:22', :primary => true
+end
+
+# =============================================================================
+# Any custom after tasks can go here.
+# after "deploy:symlink_configs", "nulogy_custom"
+# task :nulogy_custom, :roles => :app, :except => {:no_release => true, :no_symlink => true} do
+#   run <<-CMD
+#   CMD
+# end
+# =============================================================================
+
+# Don't change unless you know what you are doing!
+
+before "deploy:web:disable", "newrelic:disable_heartbeat"
+before "deploy:web:enable", "newrelic:notice_deployment"
+after "deploy:web:enable", "newrelic:enable_heartbeat"
+
+after "deploy", "deploy:cleanup"
+after "deploy:migrations", "deploy:cleanup"
+after "deploy:update_code","deploy:symlink_configs"
+before "deploy:assets:precompile", "deploy:i18n_js_extract"
+
+
+# If you're modifying symlinks, make sure to also update deploy/after_symlink.rb (which is used by DR)
+after "deploy:symlink_configs", "deploy:symlink_amazon_s3"
+after "deploy:symlink_configs", "deploy:symlink_google_analytics"
+after "deploy:symlink_configs", "deploy:symlink_branding"
+after "deploy:symlink_configs", "deploy:symlink_airbrake"
+after "deploy:symlink_configs", "deploy:symlink_newrelic"
+after "deploy:symlink_configs", "deploy:symlink_resque"
+after "deploy:symlink_configs", "deploy:symlink_reporting"
+after "deploy:symlink_configs", "deploy:symlink_cpi"
+after "deploy:symlink_configs", "deploy:symlink_memcached"
+after "deploy:symlink_configs", "deploy:symlink_uservoice"
+
+
+after "deploy:migrations", "deploy:restart_resque"
+after "deploy:migrations", "deploy:restart_resque_web"
+after "deploy:migrations", "deploy:restart_resque_scheduler"
+after "deploy:migrations", "deploy:restart_unicorn"
+after "deploy:restart", "deploy:flush_memcached"
+
+
+namespace :deploy do
+  namespace :rollback do
+    desc "Rolls back to the last successful build, and restarts with no downtime"
+    task :zero_downtime, :role => :app, :max_hosts => 1 do
+      revision
+      cleanup
+      #Commented out because eycap changed from sudo to run and it doesn't work anymore
+      #unicorn.deploy
+      unicorn_zerodowntime_deploy
+      restart_resque
+      restart_resque_scheduler
+      # we sleep so that all the servers don't restart at once and any performance
+      # degradations from deploying and starting the new workers before the old ones
+      # are done don't all hit at the same time
+      puts "Sleeping"
+      sleep 30
+    end
+  end
+
+  desc "Deploys the code, rebuilds the assets, and restarts unicorn with no downtime"
+  task :zero_downtime, :role => :app, :max_hosts => 1 do
+    deploy.update
+    #Commented out because eycap changed from sudo to run and it doesn't work anymore
+    #unicorn.deploy
+    unicorn_zerodowntime_deploy
+    restart_resque
+    restart_resque_scheduler
+
+    # we sleep so that all the servers don't restart at once and any performance
+    # degradations from deploying and starting the new workers before the old ones
+    # are done don't all hit at the same time
+    puts "Sleeping"
+    sleep 30
+  end
+
+  desc "deploy unicorn changes"
+  task :unicorn_zerodowntime_deploy, :roles => [:app], :except => {:unicorn => false} do
+    sudo "/engineyard/bin/unicorn #{application} deploy"
+  end
+
+
+  desc "Flush memcached."
+  task :flush_memcached, :role => :app, :except => {:no_release => true, :no_symlink => true} do
+    run "ruby #{latest_release}/script/flush_memcached.rb"
+  end
+
+  desc "Symlink the Amazon S3 config file."
+  task :symlink_amazon_s3, :role => :app, :except => {:no_release => true, :no_symlink => true} do
+    run "ln -nfs #{shared_path}/config/amazon_s3.yml #{latest_release}/config/amazon_s3.yml"
+  end
+
+  desc "Symlink the reporting config file."
+  task :symlink_reporting, :role => :app, :except => {:no_release => true, :no_symlink => true} do
+    run "ln -nfs #{shared_path}/config/reporting.yml #{latest_release}/config/reporting.yml"
+  end
+
+  desc "Symlink the Google Analytics config file."
+  task :symlink_google_analytics, :role => :app, :except => {:no_release => true, :no_symlink => true} do
+    run "ln -nfs #{shared_path}/config/google_analytics.yml #{latest_release}/config/google_analytics.yml"
+  end
+
+  desc "Symlink the branding config file."
+  task :symlink_branding, :role => :app, :except => {:no_release => true, :no_symlink => true} do
+    run "ln -nfs #{shared_path}/config/branding.yml #{latest_release}/config/branding.yml"
+  end
+
+  desc "Symlink the airbrake config file."
+  task :symlink_airbrake, :role => :app, :except => {:no_release => true, :no_symlink => true} do
+    run "ln -nfs #{shared_path}/config/airbrake.yml #{latest_release}/config/airbrake.yml"
+  end
+
+  desc "Symlink the newrelic config file."
+  task :symlink_newrelic, :role => :app, :except => {:no_release => true, :no_symlink => true} do
+    run "ln -nfs #{shared_path}/config/newrelic.yml #{latest_release}/config/newrelic.yml"
+  end
+
+  desc "Symlink the resque config file."
+  task :symlink_resque, :role => :app, :except => {:no_release => true, :no_symlink => true} do
+    run "ln -nfs #{shared_path}/config/resque.yml #{latest_release}/config/resque.yml"
+  end
+
+  desc "Symlink the cpi-event-connector config file."
+  task :symlink_cpi, :role => :app, :except => {:no_release => true, :no_symlink => true} do
+    run "ln -nfs #{shared_path}/config/cpi_event_connector.yml #{latest_release}/config/cpi_event_connector.yml"
+  end
+
+  desc "Symlink the memcached config file."
+  task :symlink_memcached, :role => :app, :except => {:no_release => true, :no_symlink => true} do
+    run "ln -nfs #{shared_path}/config/memcached.yml #{latest_release}/config/memcached.yml"
+  end
+
+  desc "Symlink the uservoice config file."
+  task :symlink_uservoice, :role => :app, :except => {:no_release => true, :no_symlink => true} do
+    run "ln -nfs #{shared_path}/config/uservoice.yml #{latest_release}/config/uservoice.yml"
+  end
+
+  desc "Restart the resque workers."
+  task :restart_resque, :role => :app, :only => {:resque => true} do
+    sudo "monit restart all -g resque_#{application}"
+  end
+
+  desc "Stop the resque workers."
+  task :stop_resque, :role => :app, :only => {:resque => true} do
+    sudo "monit stop all -g resque_#{application}"
+  end
+
+  desc "Restart the resque web instance."
+  task :restart_resque_web, :role => :app, :only => {:resque_web => true} do
+    sudo "monit restart all -g resque-web_#{application}"
+  end
+
+  desc "Stop the resque web instance."
+  task :stop_resque_web, :role => :app, :only => {:resque_web => true} do
+    sudo "monit stop all -g resque-web_#{application}"
+  end
+
+  desc "Restart the resque scheduler."
+  task :restart_resque_scheduler, :role => :app, :only => {:resque_scheduler => true} do
+    sudo "monit restart all -g resque_scheduler_#{application}"
+  end
+
+  desc "Stop the resque scheduler."
+  task :stop_resque_scheduler, :role => :app, :only => {:resque_scheduler => true} do
+    sudo "monit stop all -g resque_scheduler_#{application}"
+  end
+
+  desc "Restart unicorn"
+  task :restart_unicorn, :role => :web do
+    sudo "monit restart all -g unicorn_#{application}"
+  end
+
+  desc "Start Application"
+  task :start, :roles => :app do
+    run "touch #{current_release}/tmp/restart.txt"
+  end
+
+  task :stop, :roles => :app do
+    # Do nothing.
+  end
+
+  desc "Check permissions"
+  task :check_permissions, :roles => :db do
+    run "cd #{current_release} && RAILS_ENV=#{rails_env} bundle exec rake check_permissions"
+  end
+
+  desc "Restart Application"
+  task :restart, :roles => :app do
+    run "touch #{current_release}/tmp/restart.txt"
+  end
+
+  desc "Create asset packages for production"
+  task :build_assets, :roles => [:web] do
+    run <<-EOF
+     cd #{current_release} && bundle exec rake asset:packager:build_all
+    EOF
+  end
+
+  desc "Sanitize the production snapshot"
+  task :sanitize_production_snapshot, :roles => :db, :only => {:sanitize => true} do
+    run <<-EOF
+      cd #{current_release} && bundle exec rails runner -e production lib/scripts/sanitize_production_snapshot.rb
+    EOF
+  end
+
+  namespace :sass do
+    desc 'Updates the stylesheets generated by Sass'
+    task :update do
+      run "cd #{current_release} && RAILS_ENV=#{rails_env} bundle exec rake sass:update"
+    end
+  end
+
+  desc "Extracts the js translations files for i18n"
+  task "i18n_js_extract" do
+    run "cd #{current_release} && RAILS_ENV=#{rails_env} bundle exec rake i18n:js:extract"
+  end
+
+  task :cleanup, :except => {:no_release => true} do
+    count = fetch(:keep_releases, 5).to_i
+    try_sudo "ls -1dt #{releases_path}/* | tail -n +#{count + 1} | xargs rm -rf"
+  end
+
+end
+
+ENV['NEWRELIC_API_KEY'] = "e8454ba58f95bc2ab7313111aa5408768a211e128fe08c1"
+namespace :newrelic do
+  desc "Stop the NewRelic availability monitoring"
+  task :disable_heartbeat do
+    if ENV['GAMMA'] == 'No'
+      url = ENV['MONITORING_URL']
+      run "curl #{url}/disable -X POST -H 'X-Api-Key: #{ENV['NEWRELIC_API_KEY']}'"
+    end
+  end
+
+  task :enable_heartbeat do
+    if ENV['GAMMA'] == 'No'
+      url = ENV['MONITORING_URL']
+      run "curl #{url}/enable -X POST -H 'X-Api-Key: #{ENV['NEWRELIC_API_KEY']}'"
+    end
+  end
+end
+
+namespace :db do
+  desc "Backup postgres DB on EngineYard"
+  task :backup, :roles => :db, :only => {:primary => true} do
+    backup_name = "#{cluster}_#{Time.now.strftime('%Y-%b-%d_%H:%M')}.backup"
+    on_rollback { run "rm -f /data/db_backups/#{backup_name}"}
+    run "pg_dump -U #{dbuser} -W -h #{environment_dbhost} -x -Fc -f /data/db_backups/#{backup_name} #{environment_database}" do |ch, stream, out|
+      ch.send_data "#{dbpass}\n" if out =~ /^Password:/
+      puts out
+    end
+    #save_path = ENV['SAVE_PATH'] || '/tmp'
+    #set :backup_file, "#{save_path}/#{backup_name}"
+    #get "/tmp/#{backup_name}", backup_file
+    #run "rm -f /tmp/#{backup_name}"
+  end
+
+  desc "Backup postgres DB and saves by default to /tmp, use SAVE_PATH to specify other locations)"
+  task :backup_and_download, :roles => :db, :only => {:primary => true} do
+    backup_name = "#{cluster}_#{Time.now.strftime('%Y-%b-%d_%H:%M')}.backup"
+    on_rollback { run "rm -f /data/db_backups/#{backup_name}"}
+    run "pg_dump -U #{dbuser} -W -h #{environment_dbhost} -x -Fc -f /data/db_backups/#{backup_name} #{environment_database}" do |ch, stream, out|
+      ch.send_data "#{dbpass}\n" if out =~ /^Password:/
+      puts out
+    end
+
+    save_path = ENV['SAVE_PATH'] || '/tmp'
+    set :backup_file, "#{save_path}/#{backup_name}"
+    get "/data/db_backups/#{backup_name}", backup_file
+    run "rm -f /data/db_backups/#{backup_name}"
+
+    # backup_name = "#{cluster}_#{Time.now.strftime('%Y-%b-%d_%H:%M')}.backup"
+    # on_rollback { run "rm -f /tmp/#{backup_name}"}
+    # run "pg_dump -U #{dbuser} -W -h #{environment_dbhost} -x -Fc -f /tmp/#{backup_name} #{environment_database}" do |ch, stream, out|
+    #   ch.send_data "#{dbpass}\n" if out =~ /^Password:/
+    #   puts out
+    # end
+    # save_path = ENV['SAVE_PATH'] || '/tmp'
+    # set :backup_file, "#{save_path}/#{backup_name}"
+    # get "/tmp/#{backup_name}", backup_file
+    # run "rm -f /tmp/#{backup_name}"
+  end
+
+  desc "Synchronize local DB to remote (defaults to packmanager_development, use DB to specify others)"
+  task :sync do
+    backup
+    restore_db backup_file
+  end
+
+  desc "Restore postgres backup to a local DB (defaults to packmanager_development, use DB to specify others)"
+  task :restore do
+    if ENV['FILE']
+      restore_db ENV['FILE']
+    else
+      puts "Please specify a filename using FILE=..."
+    end
+  end
+
+  desc "Truncate and seed database with the selenium dataset"
+  task :prepare_db_for_selenium_tests do
+    run "cd #{current_release} && RAILS_ENV=#{rails_env} bundle exec rake db:truncate"
+    run "cd #{current_release} && RAILS_ENV=#{rails_env} bundle exec rake db:seed_selenium"
+  end
+
+  #desc "Reset the test database to the fixtures in db/integration_test_fixtures.sql"
+  #task :prepare_for_integration_tests do
+  #  sudo "/etc/init.d/nginx stop"
+  #  sleep 3
+  #  run "PGPASSWORD=Nulogy4Ever dropdb -U nulogy -h quail.local nulogy_qa3 || true"
+  #  run "PGPASSWORD=Nulogy4Ever createdb -h quail.local -T template0 -U nulogy nulogy_qa3"
+  #  run "PGPASSWORD=Nulogy4Ever pg_restore -F c -h quail.local -U nulogy -d nulogy_qa3 #{current_release}/db/selenium_fixtures.pgdump"
+  #  sudo "/etc/init.d/nginx start"
+  #end
+  #after "db:prepare_for_integration_tests","deploy:migrate"
+
+end
+
+def self.restore_db file
+  db = ENV['DB'] || 'packmanager_development'
+  port = ENV['PORT'] || '5432'
+  host = ENV['HOST'] || 'localhost'
+  user = ENV['DBUSER'] || 'nulogy'
+  system("psql -h #{host} -p #{port} -U #{user} -d template1 -c 'DROP DATABASE #{db}'")
+  system("psql -h #{host} -p #{port} -U #{user} -d template1 -c \"CREATE DATABASE #{db} WITH OWNER = #{user} ENCODING = 'UTF8'\"")
+  system("pg_restore --no-owner --username=#{user} --host=#{host} --port=#{port} --dbname=#{db} #{file}")
+end
+
+desc "Reset the password of all nulogy users."
+task :reset_nulogy_pass, :roles => :db, :only => { :primary => true } do
+  run "cd #{current_release}; bundle exec rake reset_pass ROLE=nulogy PASSWORD=#{ENV['PASSWORD']} RAILS_ENV=#{rails_env}"
+end
+
+desc "Create a nulogy user."
+task :create_user, :roles => :db, :only => { :primary => true } do
+  if ENV['EMAIL'] && ENV['PASSWORD']
+    run "cd #{deploy_to}/current; RAILS_ENV=production bundle exec rake production nulogy:create_user[#{ENV['EMAIL']},#{ENV['PASSWORD']}]"
+  else
+    puts <<-USAGE
+Please specify the login email and password using EMAIL and PASSWORD.
+i.e. cap <server> create_user EMAIL=email@nulogy.com and PASSWORD=password
+    USAGE
+  end
+end
+
+desc "Truncate the sessions table"
+task :truncate_sessions, :roles => :db, :only => { :primary => true } do
+  run "cd #{current_release} && RAILS_ENV=#{rails_env} bundle exec rake nulogy:truncate_sessions"
+end
+
+desc "Migrate staged custom outputs"
+task :migrate_custom_outputs, :roles => :db, :only => { :primary => true } do
+  run "cd #{current_release} && RAILS_ENV=#{rails_env} bundle exec rake custom_outputs:migrate"
+end
+
+after "deploy:symlink_configs", "truncate_sessions"
+
+after "deploy:symlink_configs", "migrate_custom_outputs"
+
+after "deploy:zero_downtime", "deploy:cleanup"
+# uncomment the following to have a database backup done before every migration
+# before "deploy:migrate", "db:dump"
+

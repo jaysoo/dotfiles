@@ -1,0 +1,47 @@
+describe("AngularErrors", function() {
+  'use strict';
+
+  var m = require("AngularErrors")
+
+  var rootScope, compile
+
+  beforeEach(module(m.name))
+
+  beforeEach(inject(function($compile, $rootScope) {
+    compile = $compile
+    rootScope = $rootScope.$new()
+  }))
+
+  describe("nuErrorsInline", function() {
+    var scope, $form, $input, inputCtrl
+
+    beforeEach(inject(function($compile, $rootScope) {
+      scope = rootScope.$new()
+      scope.model = {name: 'bar'}
+
+      var tmpl = '<form name="testForm">' +
+        '<input name="modelName" ng-model="model.name" nu-errors-inline required />' +
+        '</form>'
+
+      $form = $compile(tmpl)(scope)
+      $input = $form.find('input')
+      inputCtrl = $input.controller('ngModel');
+      scope.$apply()
+    }))
+
+    it("displays form control errors when model value changes", function() {
+      
+      scope.$apply()
+      expect($input.hasClass('error')).toBe(true)
+      expect($input.data('originalTitle')).toEqual('This is required.')
+    })
+
+    it("does not displays tooltip when there is no error", function() {
+      inputCtrl.$setViewValue("aaa")
+      scope.$apply()
+      expect($input.hasClass('error')).toBe(false)
+      expect($input.data('originalTitle')).not.toBeTruthy()
+    })
+  })
+})
+

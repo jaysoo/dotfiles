@@ -1,0 +1,884 @@
+Merge branch '6202_receive_order_items_new_uoms' into dev
+
+$ Please enter a commit message to explain why this merge is necessary,
+$ especially if it merges an updated upstream into a topic branch.
+$
+$ Lines starting with '$' will be ignored, and an empty message aborts
+$ the commit.
+$
+$ It looks like you may be committing a merge.
+$ If this is not correct, please remove the file
+$	.git/MERGE_HEAD
+$ and try again.
+
+
+$ Please enter the commit message for your changes. Lines starting
+$ with '$' will be ignored, and an empty message aborts the commit.
+$ On branch dev
+$ All conflicts fixed but you are still merging.
+$   (use "git commit" to conclude merge)
+$
+$ Changes to be committed:
+$
+$	modified:   app/helpers/jobs_helper.rb
+$	modified:   app/serializers/mobile/receive_order_serializer.rb
+$	modified:   app/views/receive_order_items/_edit.html.erb
+$	modified:   app/views/receive_order_items/_new.html.erb
+$	modified:   app/views/receive_order_items/_show.html.erb
+$	modified:   config/nginx.conf.erb
+$	modified:   db/schema.rb
+$	modified:   domain/master/quantity.rb
+$	modified:   domain/master/sku.rb
+$	modified:   domain/planning/receive_order.rb
+$	modified:   domain/planning/receive_order_item.rb
+$	modified:   lib/receipt/totals_base.rb
+$	modified:   lib/scripts/set_receive_order_item_unit_uom.rb
+$	modified:   spec/integration/serializers/mobile/receipt_serializer_spec.rb
+$	modified:   spec/unit/domain/master/quantity_spec.rb
+$	modified:   test/blueprints.rb
+$	modified:   test/functional/legacy_mobile/receipt_items_controller_test.rb
+$	modified:   test/functional/receive_order_items_controller_test.rb
+$	modified:   test/unit/helpers/jobs_helper_test.rb
+$	modified:   test/unit/receive_order_item_test.rb
+$
+diff --git a/app/helpers/jobs_helper.rb b/app/helpers/jobs_helper.rb
+old mode 100644
+new mode 100755
+index f9b6c4a..efc7727
+--- a/app/helpers/jobs_helper.rb
++++ b/app/helpers/jobs_helper.rb
+@@ -115,18 +115,22 @@ module JobsHelper
+     end
+   end
+ 
+-  def display_pallet_breakdown sku, quantity
++  def display_pallet_breakdown(sku, quantity)
+     return "0" unless sku
+     return "--" unless quantity
+ 
+-    number_of_pallets, remainder = sku.count_full_pallets quantity, sku.unit_of_measure
++    default_uom = UomContext.find_default_uom_for(sku)
++
++    number_of_pallets, base_remainder = sku.count_full_pallets_with_base_quantity_remainder(Quantity.new(quantity, default_uom))
++
++    remainder = base_remainder.convert_to(default_uom)
+     value = format_number_short(quantity, :integer_friendly => true)
+ 
+     if number_of_pallets > 0
+       value << s_("JOB_DOCKET_CASES_EXPECTED| ({{{number_of_pallets}}} {{{pluralized_pallets}}}").i(:number_of_pallets => format_integer(number_of_pallets.to_i), :pluralized_pallets => n_("pallet", "pallets", number_of_pallets.to_i))
+       value << s_("JOB_DOCKET_CASES_EXPECTED| @ {{{number_of_units}}}").i(:number_of_units => format_number_short(sku.units_per_full_pallet(sku.unit_of_measure), :integer_friendly => true))
+       value << s_("JOB_DOCKET_CASES_EXPECTED| {{{unit_of_measure}}} per pallet").i(:unit_of_measure => sku.unit_of_measure)
+-      value << s_("JOB_DOCKET_CASES_EXPECTED| + {{{number_remaining}}} {{{unit_of_measure}}}").i(:number_remaining => format_number_short(remainder, :integer_friendly => true), :unit_of_measure => sku.unit_of_measure) if remainder > 0
++      value << s_("JOB_DOCKET_CASES_EXPECTED| + {{{number_remaining}}} #{remainder.unit_of_measure.label}").i(:number_remaining => format_number_short(remainder.value, :integer_friendly => true)) if remainder.value > 0
+       value << ")"
+     end
+ 
+diff --git a/app/serializers/mobile/receive_order_serializer.rb b/app/serializers/mobile/receive_order_serializer.rb
+old mode 100644
+new mode 100755
+index c1548e0..13102a6
+--- a/app/serializers/mobile/receive_order_serializer.rb
++++ b/app/serializers/mobile/receive_order_serializer.rb
+@@ -16,11 +16,12 @@ class Mobile::ReceiveOrderSerializer < ActiveModel::Serializer
+     end
+ 
+     def fulfilled
+-      object.unfulfilled_quantity == 0
++      object.unfulfilled_quantity.value == 0
+     end
+ 
++    #MUSTANG - ensure this is tested
+     def unit_quantity
+-      object.unfulfilled_quantity_in_uom(object.unit_of_measure)
++      object.unfulfilled_quantity.convert_to(object.unit_uom).value
+     end
+ 
+     def sku
+diff --git a/app/views/receive_order_items/_edit.html.erb b/app/views/receive_order_items/_edit.html.erb
+index 2a38159..1c89bfb 100644
+--- a/app/views/receive_order_items/_edit.html.erb
++++ b/app/views/receive_order_items/_edit.html.erb
+@@ -19,7 +19,11 @@
+ 
+     <%= table_cell_editor 15, f, :purchase_price_per_unit, field_hash.merge(:form_id => "receive_order_item_#{receive_order_item.id}_purchase_price_per_unit", :html => { :style => hide_price })  %>
+     <%= table_cell_editor 11, f, :unit_quantity %>
+-    <%= table_cell_select 10, f, :unit_of_measure, choices_unit_of_measure, :form_id => "receive_order_item_#{receive_order_item.id}_unit_of_measure" %>
++
++    <%= table_cell_editor_custom 10 do %>
++      <%= select_uom_for(f.object.sku, :receive_order_item, :receiving) %>
++    <% end %>
++
+     <%= table_cell_actions 6 do %>
+       <%= table_form_submit %>
+       <%= table_form_cancel f, receive_order_receive_order_item_path(receive_order_item.receive_order, receive_order_item) %>
+diff --git a/app/views/receive_order_items/_new.html.erb b/app/views/receive_order_items/_new.html.erb
+index 3c4a4c7..a29cc58 100644
+--- a/app/views/receive_order_items/_new.html.erb
++++ b/app/views/receive_order_items/_new.html.erb
+@@ -1,11 +1,16 @@
+-<%= table_row_new 'new_receive_order_item' do %>
++<%= table_row_new 'new_receive_order_item', :style_class => 'uom-group sku-lot-expiry-group' do %>
+   <%= table_form(
+       @receive_order_item || ReceiveOrderItem.new,
+       :row_id => 'new_receive_order_item',
+       :method => :post,
+       :url => receive_order_receive_order_items_path(receive_order)) do |f| %>
+     <%= table_cell_editor_custom 24 do %>
+-      <%= f.text_field :sku_code, :'data-autocomplete-path' => autocomplete_codes_skus_path, :'data-update-fields-path' => update_item_information_receive_order_receive_order_items_path(receive_order) %>
++      <%= f.text_field :sku_code,
++      :data => {
++        :'autopopulate-uom' => true,
++        :'autocomplete-path' => autocomplete_codes_skus_path,
++        :'update-fields-path' => update_item_information_receive_order_receive_order_items_path(receive_order)
++      }%>
+     <% end %>
+     <% if @receive_order_item %>
+       <%= table_cell 31, @receive_order_item.sku ? @receive_order_item.sku.description : "", :id => "receive_order_item_sku_description" %>
+@@ -21,7 +26,11 @@
+     <%= table_cell_editor 15, f, :purchase_price_per_unit, field_hash.merge(:html => {:style => display_style, :value => @receive_order_item ? @receive_order_item.purchase_price_per_unit : 0}) %>
+ 
+     <%= table_cell_editor 11, f, :unit_quantity %>
+-    <%= table_cell_select 10, f, :unit_of_measure, choices_unit_of_measure %>
++
++    <%= table_cell_editor_custom 10 do %>
++      <%= select_uom_for(f.object.sku, :receive_order_item, :receiving) %>
++    <% end %>
++
+     <%= table_cell_actions 6 do %>
+       <%= table_form_submit :title => add_title %>
+     <% end %>
+diff --git a/app/views/receive_order_items/_show.html.erb b/app/views/receive_order_items/_show.html.erb
+index aa1beda..142e0af 100644
+--- a/app/views/receive_order_items/_show.html.erb
++++ b/app/views/receive_order_items/_show.html.erb
+@@ -12,7 +12,7 @@
+     <%= table_cell 46, h(receive_order_item.sku.description) %>
+   <% end %>
+   <%= table_cell 11, format_number_short(receive_order_item.unit_quantity) %>
+-  <%= table_cell 10, humanize_unit_of_measure(h(receive_order_item.unit_of_measure)) %>
++  <%= table_cell 10, h(receive_order_item.unit_uom.label) %>
+   <%= table_cell_actions 6 do %>
+     <% if !receive_order_item.receive_order.frozen_for_accounting? && permitted?('receive_orders', 'new')  %>
+       <%= link_to_edit_object receive_order_item %>
+diff --git a/config/nginx.conf.erb b/config/nginx.conf.erb
+index 10f547d..5c73b58 100644
+--- a/config/nginx.conf.erb
++++ b/config/nginx.conf.erb
+@@ -76,7 +76,7 @@ http {
+ 
+   server {
+     # enable one of the following if you're on Linux or FreeBSD
+-    listen <%= ENV["NGINX_PORT"] %> default deferred; # for Linux
++    listen <%= ENV["NGINX_PORT"] %> default; # for Linux
+     # listen 80 default accept_filter=httpready; # for FreeBSD
+ 
+     # If you have IPv6, you'll likely want to have two separate listeners.
+diff --git a/db/schema.rb b/db/schema.rb
+index 5f8eec3..cbc4255 100755
+--- a/db/schema.rb
++++ b/db/schema.rb
+@@ -1523,6 +1523,7 @@ ActiveRecord::Schema.define(:version => 20140117153854) do
+   create_table "outbound_trailers", :force => true do |t|
+     t.integer  "site_id"
+     t.text     "external_identifier"
++    t.boolean  "shipped",                                :default => false
+     t.integer  "customer_id"
+     t.text     "bill_to"
+     t.text     "bill_to_address"
+@@ -1562,7 +1563,6 @@ ActiveRecord::Schema.define(:version => 20140117153854) do
+     t.integer  "outbound_trailer_route_id",                                 :null => false
+     t.text     "equipment_type"
+     t.integer  "dock_appointment_id"
+-    t.boolean  "shipped",                                :default => false
+   end
+ 
+   add_index "outbound_trailers", ["site_id", "bill_of_lading_number"], :name => "index_outbound_trailers_on_site_id_and_bill_of_lading_number", :unique => true
+diff --git a/domain/master/quantity.rb b/domain/master/quantity.rb
+old mode 100644
+new mode 100755
+index 5640ece..6c8e087
+--- a/domain/master/quantity.rb
++++ b/domain/master/quantity.rb
+@@ -13,10 +13,6 @@ class Quantity
+     Quantity.new(converted_value, to_uom)
+   end
+ 
+-  def ==(other)
+-    other.unit_of_measure == unit_of_measure && other.value == value
+-  end
+-
+   def inspect
+     "Quantity(#{value}, #{unit_of_measure.try(:label)})"
+   end
+@@ -25,12 +21,33 @@ class Quantity
+     value * unit_of_measure.ratio_to_base
+   end
+ 
++  def -(other)
++    assert_compatible_uom(other.unit_of_measure)
++
++    base_difference = self.base_value - other.base_value
++    return Quantity.new(base_difference / self.unit_of_measure.ratio_to_base, self.unit_of_measure)
++  end
++
++  include Comparable
++  def <=>(other)
++    return nil unless skus_match?(other.unit_of_measure)
++    self.base_value <=> other.base_value
++  end
++
++  def to_s
++    self.inspect
++  end
++
+   private
+ 
+   def assert_compatible_uom(to_uom)
+-    raise IncompatibleUnitOfMeasureError if unit_of_measure.sku_id != to_uom.sku_id
++    raise IncompatibleUnitOfMeasureError unless skus_match?(to_uom)
++  end
++
++  def skus_match?(to_uom)
++    unit_of_measure.sku_id == to_uom.sku_id
+   end
+ 
+-  class IncompatibleUnitOfMeasureError < StandardError; end
++  class IncompatibleUnitOfMeasureError < TypeError; end
+ end
+ 
+diff --git a/domain/master/sku.rb b/domain/master/sku.rb
+index ae7d253..64777dd 100755
+--- a/domain/master/sku.rb
++++ b/domain/master/sku.rb
+@@ -1098,6 +1098,12 @@ class Sku < ActiveRecord::Base
+     [num_full_pallets.to_i, self.convert(remainder_in_eaches, "eaches", remainder_unit_of_measure)]
+   end
+ 
++  def count_full_pallets_with_base_quantity_remainder(quantity)
++    base_quantity_per_pallet = self.ratio_to_pallet(self.base_uom)
++    number_of_pallets, base_quantity_remainder = quantity.base_value.divmod(base_quantity_per_pallet)
++    return [number_of_pallets, Quantity.new(base_quantity_remainder, self.base_uom)]
++  end
++
+   def count_full_cases each_quantity, remainder_unit_of_measure=self.unit_of_measure
+     quantity_per_case = BigDecimal.new(self.eaches_per_case.to_s)
+     #each_quantity.divmod(quantity_per_case)
+diff --git a/domain/planning/receive_order.rb b/domain/planning/receive_order.rb
+old mode 100644
+new mode 100755
+index 7a221e3..bb9abf1
+--- a/domain/planning/receive_order.rb
++++ b/domain/planning/receive_order.rb
+@@ -268,29 +268,34 @@ public
+     receive_order_items
+   end
+ 
+-  def received_each_quantities
++  def received_quantities
+     received_items_query =<<-SQL
+-      SELECT ri.sku_id AS sku_id, sum(ri.each_quantity) AS each_quantity
++      SELECT ri.sku_id AS sku_id, skus.base_uom_id, sum(ri.unit_quantity * unit_of_measures.ratio_to_base) AS base_quantity
+       FROM receipt_items AS ri
+-        LEFT JOIN receive_order_items AS roi ON ri.receive_order_item_id = roi.id
++      LEFT JOIN receive_order_items AS roi ON ri.receive_order_item_id = roi.id
++      LEFT JOIN unit_of_measures ON ri.unit_uom_id = unit_of_measures.id
++      LEFT JOIN skus ON skus.id = ri.sku_id
+       WHERE roi.receive_order_id = :receive_order_id
+-      GROUP BY ri.sku_id
++      GROUP BY ri.sku_id, skus.base_uom_id
+     SQL
+ 
+     received_quantities = {}
+     received_items = ReceiveOrder.find_by_sql([received_items_query, {:receive_order_id => self.id}])
+     received_items.each do |ri|
+-      received_quantities[ri.sku_id.to_i] = ri.each_quantity.to_d
++      uom = UnitOfMeasure.find(ri.base_uom_id)
++      received_quantities[ri.sku_id.to_i] = Quantity.new(ri.base_quantity.to_d, uom)
+     end
++
+     received_quantities
+   end
+ 
+   def unfulfilled_items
+-    received_each_qtys = received_each_quantities
++    cached_received_quantities = received_quantities
+     rois = []
+     self.receive_order_items.each do |roi|
+-      received_quantity = received_each_qtys[roi.sku_id].to_d
+-      if received_quantity < roi.sku.convert(roi.unit_quantity, roi.unit_of_measure, "eaches")
++      received_quantity = cached_received_quantities[roi.sku_id] || Quantity.new(0, roi.quantity.unit_of_measure)
++
++      if received_quantity < roi.quantity
+         rois << roi
+       end
+     end
+diff --git a/domain/planning/receive_order_item.rb b/domain/planning/receive_order_item.rb
+old mode 100644
+new mode 100755
+index ddcb859..d90869b
+--- a/domain/planning/receive_order_item.rb
++++ b/domain/planning/receive_order_item.rb
+@@ -9,31 +9,45 @@ class ReceiveOrderItem < ActiveRecord::Base
+   belongs_to :receive_order
+   belongs_to :sku
+   belongs_to :site
++  belongs_to :unit_uom, class_name: 'UnitOfMeasure'
+   has_many :planned_receipt_items
+   has_many :receipt_items
+-  validates_inclusion_of :unit_of_measure, :in => Sku::UOMS
+   validates_numericality_of :unit_quantity, :greater_than_or_equal_to => 0
+   validates_numericality_of :purchase_price_per_unit
+   validates_presence_of :sku, :site
+   validate :prevent_if_frozen_for_accounting, :validate_purchase_price, :ensure_active_sku
+   validate :prevent_sku_change_if_associated_with_receipt_items, :on => :update
+-  
++
+   validate :ensure_unique_sku_on_create, :on => :create, :if => "receive_order.present?"
+   validate :ensure_unique_sku_on_update, :on => :update, :if => "receive_order.present?"
+ 
+   before_destroy :prevent_if_frozen_for_accounting, :prevent_if_associated_with_receipt_items
+-  validate :validate_limit, :on => :create 
+-  before_validation :set_site_from_receive_order, :on => :create 
++  validate :validate_limit, :on => :create
++  before_validation :set_site_from_receive_order, :on => :create
+   before_validation :set_sku, :set_each_quantity, :set_purchase_price
+   after_save :update_receive_order
+   after_destroy :update_receive_order
+ 
++  validates_with ValidateUnitUomBelongsToSku
++
+   strip_attributes
+ 
+   has_unit_quantity
+ 
+   acts_as_list :scope => :receive_order
+ 
++  def quantity
++    return nil unless unit_quantity.present?
++    Quantity.new(unit_quantity, unit_uom)
++  end
++
++  def quantity= quantity
++    self[:unit_quantity] = quantity.value
++    self[:unit_uom_id] = quantity.unit_of_measure.try(:id)
++    self[:unit_of_measure] = quantity.unit_of_measure.try(:code)
++
++    @quantity = quantity
++  end
+ 
+   def set_site_from_receive_order
+     self.site = self.receive_order.site if self.receive_order
+@@ -94,21 +108,21 @@ class ReceiveOrderItem < ActiveRecord::Base
+ 
+   # this method is currently only used for the mobile screens
+   def seeded_receipt_item_generator is_receive_by_pallet_tag=false
+-    generator = Mobile::ReceiptItemGenerator.new :sku_code => self.sku.code, :unit_of_measure => self.sku.unit_of_measure, :receive_order_item_id => self.id
++    generator = Mobile::ReceiptItemGenerator.new :sku_code => self.sku.code, :receive_order_item_id => self.id, :unit_uom => self.unit_uom
+ 
+-    unit_qty_remaining = unfulfilled_quantity
+-    unit_qty_per_pallet =  self.sku.units_per_full_pallet(self.sku.unit_of_measure).to_d
++    qty_remaining = unfulfilled_quantity
++    base_quantity_per_pallet = self.sku.ratio_to_pallet(self.sku.base_uom)
+ 
+     # if we have one pallet or less remaining
+-    if unit_qty_remaining <= unit_qty_per_pallet
++    if qty_remaining.base_value <= base_quantity_per_pallet
+       generator.number_of_skids = 1
+-      generator.unit_quantity_per_skid = unit_qty_remaining
++      generator.unit_quantity_per_skid = qty_remaining.value
+       return generator
+     end
+ 
+     # otherwise we have some quantity of full pallets
+-    generator.unit_quantity_per_skid = unit_qty_per_pallet
+-    generator.number_of_skids = self.sku.count_full_pallets(unit_qty_remaining, self.sku.unit_of_measure).first
++    generator.unit_quantity_per_skid = self.sku.ratio_to_pallet(UomContext.uom(self.sku, "default"))
++    generator.number_of_skids = self.sku.count_full_pallets_with_base_quantity_remainder(qty_remaining).first
+ 
+     if is_receive_by_pallet_tag
+       generator.number_of_skids = 1
+@@ -116,14 +130,15 @@ class ReceiveOrderItem < ActiveRecord::Base
+     generator
+   end
+ 
+-  def unfulfilled_quantity_in_uom uom
+-    sku.convert(unfulfilled_quantity, sku.unit_of_measure, uom)
+-  end
+-
+   def unfulfilled_quantity
+-    received_each_qty = self.receive_order.received_each_quantities[self.sku_id].to_d
+-    unfulfilled = self.sku.convert(self.unit_quantity, self.unit_of_measure) - self.sku.convert(received_each_qty, Sku::EACHES)
+-    unfulfilled < 0 ? 0 : unfulfilled #if we have overfulfilled, return 0 rather than a negative number
++    received_qty = self.receive_order.received_quantities[self.sku_id] || Quantity.new(0, self.unit_uom)
++    unfulfilled = self.quantity - received_qty
++
++    if unfulfilled.value < 0
++      return Quantity.new(0, unfulfilled.unit_of_measure)
++    else
++      return unfulfilled
++    end
+   end
+ 
+   private
+@@ -133,7 +148,7 @@ class ReceiveOrderItem < ActiveRecord::Base
+       add_sku_exists_error
+     end
+   end
+-  
++
+   def ensure_unique_sku_on_update
+     if dupl_sku_for_regular_save?
+       add_sku_exists_error
+diff --git a/lib/receipt/totals_base.rb b/lib/receipt/totals_base.rb
+index 53a9e47..bad7182 100644
+--- a/lib/receipt/totals_base.rb
++++ b/lib/receipt/totals_base.rb
+@@ -1,32 +1,32 @@
+ class Receipt::TotalsBase
+-  attr_accessor :receipt 
++  attr_accessor :receipt
+   attr_accessor :parent_rows
+ 
+   def initialize receipt
+     self.receipt = receipt
+-  end 
++  end
+ 
+-  def generate_receipt_sheet_totals 
++  def generate_receipt_sheet_totals
+     generate_parent_rows
+     child_rows = generate_child_rows
+     associate_parent_rows_to child_rows
+-  end 
++  end
++
++private
+ 
+-private 
+-  
+   def generate_parent_rows
+     self.parent_rows = receipt.generate_totals_rows
+-  end 
++  end
+ 
+-  def generate_child_rows 
++  def generate_child_rows
+     skus = receipt.skus
+     receipt.generate_totals_sub_rows(skus)
+-  end 
++  end
+ 
+   def associate_parent_rows_to child_rows
+-    child_rows_grouped_by_sku = child_rows.group_by(&:sku_id) 
++    child_rows_grouped_by_sku = child_rows.group_by(&:sku_id)
+     self.parent_rows.each do |parent|
+       parent.child_rows = child_rows_grouped_by_sku[parent.sku_id]
+-    end 
++    end
+   end
+-end 
++end
+diff --git a/lib/scripts/set_receive_order_item_unit_uom.rb b/lib/scripts/set_receive_order_item_unit_uom.rb
+old mode 100644
+new mode 100755
+index 92d4e86..dd6918b
+--- a/lib/scripts/set_receive_order_item_unit_uom.rb
++++ b/lib/scripts/set_receive_order_item_unit_uom.rb
+@@ -13,7 +13,7 @@ if __FILE__ == $0
+        SET_UNIT_UOM_SQL
+ 
+        counter += 1
+-       puts ActiveSupport::NumberHelper.number_to_delimited(counter * 1000)
++       puts counter * 1000
+ 
+        STDOUT.flush
+ 
+diff --git a/spec/integration/serializers/mobile/receipt_serializer_spec.rb b/spec/integration/serializers/mobile/receipt_serializer_spec.rb
+index 9a10ded..9d33cdb 100644
+--- a/spec/integration/serializers/mobile/receipt_serializer_spec.rb
++++ b/spec/integration/serializers/mobile/receipt_serializer_spec.rb
+@@ -88,7 +88,7 @@ describe Mobile::ReceiptSerializer do
+ 
+     it "serializes receive_order_item" do
+       order_item = ReceiveOrderItem.new sku: default_sku
+-      order_item.stub(unfulfilled_quantity: 0)
++      order_item.stub(unfulfilled_quantity: Quantity.new(0, default_sku.base_uom), unit_uom: default_sku.base_uom)
+       order_item.id = 767
+       ri.receive_order_item = order_item
+ 
+diff --git a/spec/unit/domain/master/quantity_spec.rb b/spec/unit/domain/master/quantity_spec.rb
+old mode 100644
+new mode 100755
+index e6210e5..7b1bf09
+--- a/spec/unit/domain/master/quantity_spec.rb
++++ b/spec/unit/domain/master/quantity_spec.rb
+@@ -31,4 +31,85 @@ describe "Quantity" do
+       expect(qty.base_value).to eq(3)
+     end
+   end
++
++  describe "arithmetic" do
++    context "subtraction" do
++
++      let(:lhs_uom) { UnitOfMeasure.new(ratio_to_base: 2, sku_id: 1234) }
++      let(:rhs_uom) { UnitOfMeasure.new(ratio_to_base: 4, sku_id: 1234) }
++      let(:lhs_quantity) { Quantity.new(5, lhs_uom) }
++
++      it "throws an exception when the operands are invalid" do
++        lhs_uom = UnitOfMeasure.new(sku_id: 1)
++        rhs_uom = UnitOfMeasure.new(sku_id: 2)
++
++        lhs = Quantity.new(1, lhs_uom)
++        rhs = Quantity.new(1, rhs_uom)
++
++        expect { lhs - rhs }.to raise_error(Quantity::IncompatibleUnitOfMeasureError)
++      end
++
++      it "returns the difference represented in the lhs's UOM" do
++        lhs = Quantity.new(10, lhs_uom)
++        rhs = Quantity.new(3, rhs_uom)
++
++        result = lhs - rhs # 20 - 12
++        expect(result.value).to eq(4)
++        expect(result.unit_of_measure).to eq(lhs_uom)
++      end
++    end
++  end
++
++  describe "spaceship" do
++    it "returns nil when the comparison is invalid" do
++      lhs_uom = UnitOfMeasure.new(sku_id: 1234)
++      rhs_uom = UnitOfMeasure.new(sku_id: 5678)
++
++      lhs = Quantity.new(2, lhs_uom)
++      rhs = Quantity.new(2, rhs_uom)
++
++      expect(lhs <=> rhs).to be_nil
++    end
++
++    context "same uom" do
++      let(:uom) { UnitOfMeasure.new(ratio_to_base: 30, sku_id: 1234) }
++      let(:lhs_quantity) { Quantity.new(5, uom) }
++
++      it "returns -1 when lhs is less than rhs" do
++        rhs_quantity = Quantity.new(10, uom)
++        expect(lhs_quantity <=> rhs_quantity).to eq(-1)
++      end
++
++      it "returns 0 when lhs is equal to rhs" do
++        rhs_quantity = Quantity.new(5, uom)
++        expect(lhs_quantity <=> rhs_quantity).to eq(0)
++      end
++
++      it "returns +1 when lhs is greater than rhs" do
++        rhs_quantity = Quantity.new(1, uom)
++        expect(lhs_quantity <=> rhs_quantity).to eq(1)
++      end
++    end
++
++    context "different uom" do
++      let(:lhs_uom) { UnitOfMeasure.new(ratio_to_base: 2, sku_id: 1234) }
++      let(:rhs_uom) { UnitOfMeasure.new(ratio_to_base: 4, sku_id: 1234) }
++      let(:lhs_quantity) { Quantity.new(5, lhs_uom) }
++
++      it "returns -1 when lhs base value is less than rhs base value" do
++        rhs_quantity = Quantity.new(5, rhs_uom)
++        expect(lhs_quantity <=> rhs_quantity).to eq(-1) # in base units, 10 < 20
++      end
++
++      it "returns 0 when lhs base value is equal to rhs base value" do
++        rhs_quantity = Quantity.new(2.5, rhs_uom)
++        expect(lhs_quantity <=> rhs_quantity).to eq(0) # in base units, 10 == 10
++      end
++
++      it "returns -1 when lhs base value is greater than rhs base value" do
++        rhs_quantity = Quantity.new(1, rhs_uom)
++        expect(lhs_quantity <=> rhs_quantity).to eq(1) # in base units, 10 > 4
++      end
++    end
++  end
+ end
+diff --git a/test/blueprints.rb b/test/blueprints.rb
+old mode 100644
+new mode 100755
+index 432d0a0..460f8d3
+--- a/test/blueprints.rb
++++ b/test/blueprints.rb
+@@ -1667,11 +1667,13 @@ end
+ 
+ factory :'receive_order_item' do
+   purchase_price_per_unit {10}
+-  unit_quantity {10}
+-  unit_of_measure {Sku::EACHES}
+   receive_order {ReceiveOrder.make!}
+   sku {default_sku}
+   site {default_site}
++  quantity {
++    uom = sku.present? ? sku.find_uom_by_code(Sku::EACHES) : nil
++    Quantity.new(10, uom)
++  }
+ 
+   trait :new_sku do
+     sku {Sku.make!}
+diff --git a/test/functional/legacy_mobile/receipt_items_controller_test.rb b/test/functional/legacy_mobile/receipt_items_controller_test.rb
+index 41bc3b9..2cab876 100644
+--- a/test/functional/legacy_mobile/receipt_items_controller_test.rb
++++ b/test/functional/legacy_mobile/receipt_items_controller_test.rb
+@@ -43,7 +43,7 @@ class LegacyMobile::ReceiptItemsControllerTest < ActionController::TestCase
+     assert_equal @sku.code, assigns(:receipt_item_generator).sku_code
+     assert_equal @sku.eaches_per_pallet, assigns(:receipt_item_generator).unit_quantity_per_skid
+     assert_equal 1, assigns(:receipt_item_generator).number_of_skids
+-    assert_equal @sku.unit_of_measure, assigns(:receipt_item_generator).unit_of_measure
++    assert_equal UomContext.uom(@sku, "default"), assigns(:receipt_item_generator).unit_uom
+   end
+ 
+   context "new receipt item page" do
+@@ -71,7 +71,7 @@ class LegacyMobile::ReceiptItemsControllerTest < ActionController::TestCase
+ 
+   def test_should_get_new_seeded_from_receive_order_item
+     ro = @site.receive_orders.create! :vendor => @vendor
+-    roi = ro.receive_order_items.create! :sku => @sku, :unit_quantity => 50, :unit_of_measure => Sku::EACHES
++    roi = ro.receive_order_items.make! :sku => @sku, :quantity => Quantity.new(50, @sku.base_uom)
+     @receipt.update_attributes! :mobile_receive_order => ro
+ 
+     get :new, :receipt_id => @receipt.id.to_s, :receive_order_item_id => roi.id
+@@ -83,7 +83,7 @@ class LegacyMobile::ReceiptItemsControllerTest < ActionController::TestCase
+     assert_equal @sku.code, assigns(:receipt_item_generator).sku_code
+     assert_equal 50, assigns(:receipt_item_generator).unit_quantity_per_skid
+     assert_equal 1, assigns(:receipt_item_generator).number_of_skids
+-    assert_equal @sku.unit_of_measure, assigns(:receipt_item_generator).unit_of_measure
++    assert_equal UomContext.uom(@sku, "default"), assigns(:receipt_item_generator).unit_uom
+   end
+ 
+   # If a bad receive order item id is passed, just return a new generator
+@@ -245,7 +245,7 @@ class LegacyMobile::ReceiptItemsControllerTest < ActionController::TestCase
+ 
+   def test_should_not_mass_create_seeded_from_receive_order_item
+     ro = @site.receive_orders.create! :vendor => @vendor
+-    roi = ro.receive_order_items.create! :sku => @sku, :unit_quantity => 50, :unit_of_measure => Sku::EACHES
++    roi = ro.receive_order_items.create! :sku => @sku, :quantity => Quantity.new(50, @sku.base_uom)
+ 
+     @receipt.update_attributes! :mobile_receive_order => ro
+ 
+diff --git a/test/functional/receive_order_items_controller_test.rb b/test/functional/receive_order_items_controller_test.rb
+index d111145..4b3f0fd 100644
+--- a/test/functional/receive_order_items_controller_test.rb
++++ b/test/functional/receive_order_items_controller_test.rb
+@@ -15,7 +15,7 @@ class ReceiveOrderItemsControllerTest < ActionController::TestCase
+   def test_should_create_receive_order_item
+     other_sku = @account.skus.create! :code => 'other sku'
+     old_count = ReceiveOrderItem.count
+-    xhr :post, :create, :receive_order_id => @receive_order.id, :receive_order_item => {:receive_order_id => @receive_order, :sku_id => other_sku, :unit_of_measure => Sku::EACHES}
++    xhr :post, :create, :receive_order_id => @receive_order.id, :receive_order_item => {:receive_order_id => @receive_order, :sku_id => other_sku, :unit_uom_id => other_sku.base_uom_id}
+     assert_equal old_count+1, ReceiveOrderItem.count
+ 
+     assert assigns(:receive_order_item)
+@@ -31,7 +31,7 @@ class ReceiveOrderItemsControllerTest < ActionController::TestCase
+     other_sku = @account.skus.create! :code => 'other sku'
+ 
+     assert_difference "ReceiveOrderItem.count" do
+-      xhr :post, :create, :receive_order_id => @receive_order.id, :receive_order_item => {:receive_order_id => @receive_order, :sku_id => other_sku, :unit_of_measure => Sku::EACHES}
++      xhr :post, :create, :receive_order_id => @receive_order.id, :receive_order_item => {:receive_order_id => @receive_order, :sku_id => other_sku, :unit_uom_id => other_sku.base_uom_id}
+     end
+ 
+     assert assigns(:receive_order_item)
+@@ -173,7 +173,7 @@ class ReceiveOrderItemsControllerTest < ActionController::TestCase
+     outside_site = outside_account.sites.make! :name => 'outside site'
+     outside_sku = outside_account.skus.make! :code => 'outside code'
+     outside_receive_order = outside_site.receive_orders.make! :vendor => outside_vendor
+-    outside_receive_order_item = outside_receive_order.receive_order_items.make! :sku => outside_sku, :unit_of_measure => Sku::EACHES
++    outside_receive_order_item = outside_receive_order.receive_order_items.make! :sku => outside_sku
+ 
+     assert_filter :controller => ReceiveOrderItemsController, :object => :receive_order_item,
+       :nesting_params_inside => {:receive_order_id => @receive_order.id},
+@@ -215,7 +215,7 @@ class ReceiveOrderItemsControllerTest < ActionController::TestCase
+   def test_should_order_receive_order_items
+     #receive_order_item creates at the bottom by default
+     sku_2 = @account.skus.create! :code => 'code2'
+-    receive_order_item_2 = @receive_order.receive_order_items.create! :sku => sku_2, :unit_of_measure => Sku::EACHES
++    receive_order_item_2 = @receive_order.receive_order_items.create! :sku => sku_2
+ 
+     xhr :post, :order, :receive_order_id => @receive_order.id, :receive_order_items_table => [receive_order_item_2.id.to_s, @receive_order_item.id.to_s]
+ 
+@@ -234,7 +234,7 @@ class ReceiveOrderItemsControllerTest < ActionController::TestCase
+   def test_should_order_receive_order_items_missing_id
+     #receive_order_item creates at the bottom by default
+     sku_2 = @account.skus.create! :code => 'code2'
+-    receive_order_item_2 = @receive_order.receive_order_items.create! :sku => sku_2, :unit_of_measure => Sku::EACHES
++    receive_order_item_2 = @receive_order.receive_order_items.create! :sku => sku_2
+ 
+     xhr :post, :order, :receive_order_id => @receive_order.id, :receive_order_items_table => [receive_order_item_2.id.to_s]
+ 
+diff --git a/test/unit/helpers/jobs_helper_test.rb b/test/unit/helpers/jobs_helper_test.rb
+old mode 100644
+new mode 100755
+index b143bbc..7870ce4
+--- a/test/unit/helpers/jobs_helper_test.rb
++++ b/test/unit/helpers/jobs_helper_test.rb
+@@ -43,37 +43,43 @@ class JobsHelperTest < ActionView::TestCase
+   def test_display_pallet_breakdown_less_than_pallet
+     @sku.eaches_per_case = 15
+     @sku.unit_of_measure = Sku::EACHES
++    @sku.save!
+     assert_equal "10", display_pallet_breakdown(@sku, 10)
+   end
+ 
+   def test_display_pallet_breakdown_one_pallet
+     @sku.eaches_per_case = 15
+     @sku.unit_of_measure = Sku::EACHES
++    @sku.save!
+     assert_equal "15 (1 pallet @ 15 eaches per pallet)", display_pallet_breakdown(@sku, 15)
+   end
+ 
+   def test_display_pallet_breakdown_more_than_one_pallet
+     @sku.eaches_per_case = 15
+     @sku.unit_of_measure = Sku::EACHES
++    @sku.save!
+     assert_equal "30 (2 pallets @ 15 eaches per pallet)", display_pallet_breakdown(@sku, 30)
+   end
+ 
+   def test_display_pallet_breakdown_one_pallet_handle_non_integers
+     @sku.eaches_per_case = 5.546
+     @sku.unit_of_measure = Sku::EACHES
++    @sku.save!
+     assert_equal "5.55 (1 pallet @ 5.55 eaches per pallet)", display_pallet_breakdown(@sku, 5.546)
+   end
+ 
+   def test_display_pallet_breakdown_with_remainder
+     @sku.eaches_per_case = 15
+     @sku.unit_of_measure = Sku::EACHES
+-    assert_equal "20 (1 pallet @ 15 eaches per pallet + 5 eaches)", display_pallet_breakdown(@sku, 20)
++    @sku.save!
++    assert_equal "20 (1 pallet @ 15 eaches per pallet + 5 Eaches)", display_pallet_breakdown(@sku, 20)
+   end
+ 
+   def test_display_pallet_breakdown_conversions
+     @sku.eaches_per_case = 1
+     @sku.cases_per_pallet = 2
+     @sku.unit_of_measure = Sku::CASES
++    @sku.save!
+     assert_equal "4 (2 pallets @ 2 cases per pallet)", display_pallet_breakdown(@sku, 4)
+   end
+ 
+@@ -81,7 +87,8 @@ class JobsHelperTest < ActionView::TestCase
+     @sku.eaches_per_case = 1
+     @sku.cases_per_pallet = 15
+     @sku.unit_of_measure = Sku::CASES
+-    assert_equal "15.56 (1 pallet @ 15 cases per pallet + 0.56 cases)", display_pallet_breakdown(@sku, 15.556)
++    @sku.save!
++    assert_equal "15.56 (1 pallet @ 15 cases per pallet + 0.56 Cases)", display_pallet_breakdown(@sku, 15.556)
+   end
+ 
+   def test_display_pallet_breakdown_nil_sku
+diff --git a/test/unit/receive_order_item_test.rb b/test/unit/receive_order_item_test.rb
+old mode 100644
+new mode 100755
+index bbb8ed7..0490d72
+--- a/test/unit/receive_order_item_test.rb
++++ b/test/unit/receive_order_item_test.rb
+@@ -11,10 +11,6 @@ class ReceiveOrderItemTest < ActiveSupport::TestCase
+     @valid_options = { :receive_order => @receive_order, :sku => @sku, :unit_of_measure => Sku::EACHES }
+   end
+ 
+-  test "unit_of_measure should be valid" do
+-    assert_inclusion_of ReceiveOrderItem, :unit_of_measure, Sku::UOMS
+-  end
+-
+   test "can only create 50 per receive order" do
+     @receive_order.receive_order_items.make! ReceiveOrderItem::LIMIT, :new_sku
+ 
+@@ -294,40 +290,45 @@ class ReceiveOrderItemTest < ActiveSupport::TestCase
+ 
+   def test_should_get_seeded_receipt_item_generator
+     @sku.update_attributes! :unit_of_measure => 'cases', :cases_per_pallet => 10, :eaches_per_case => 5
+-    roi = @receive_order.receive_order_items.create! :sku => @sku, :unit_quantity => 25, :unit_of_measure => 'cases'
++    cases_uom = UomContext.uom(@sku, "cases")
++
++    roi = @receive_order.receive_order_items.make! :sku => @sku, :quantity => Quantity.new(25, cases_uom)
+ 
+     generator = roi.seeded_receipt_item_generator
+ 
+     assert_equal @sku.code, generator.sku_code
+     assert_equal 2, generator.number_of_skids
+     assert_equal 10, generator.unit_quantity_per_skid
+-    assert_equal "cases", generator.unit_of_measure
++    assert_equal cases_uom, generator.unit_uom
+     assert_equal roi.id, generator.receive_order_item_id
+   end
+ 
+   def test_should_get_seeded_receipt_item_generator_in_receive_by_pallet_tag_mode
+     @sku.update_attributes! :unit_of_measure => 'cases', :cases_per_pallet => 10, :eaches_per_case => 5
+-    roi = @receive_order.receive_order_items.create! :sku => @sku, :unit_quantity => 25, :unit_of_measure => 'cases'
++    cases_uom = UomContext.uom(@sku, "cases")
++    roi = @receive_order.receive_order_items.create! :sku => @sku, :quantity => Quantity.new(25, cases_uom)
+ 
+     generator = roi.seeded_receipt_item_generator true
+ 
+     assert_equal @sku.code, generator.sku_code
+     assert_equal 1, generator.number_of_skids
+     assert_equal 10, generator.unit_quantity_per_skid
+-    assert_equal "cases", generator.unit_of_measure
++    assert_equal cases_uom, generator.unit_uom
+     assert_equal roi.id, generator.receive_order_item_id
+   end
+ 
+   def test_should_get_seeded_receipt_item_generator_different_uoms
+     @sku.update_attributes! :unit_of_measure => 'cases', :cases_per_pallet => 10, :eaches_per_case => 5
+-    roi = @receive_order.receive_order_items.create! :sku => @sku, :unit_quantity => 2, :unit_of_measure => "pallets"
++    cases_uom = UomContext.uom(@sku, "cases")
++    pallets_uom = UomContext.uom(@sku, "pallets")
++    roi = @receive_order.receive_order_items.make! :sku => @sku, :quantity => Quantity.new(2, pallets_uom), :unit_uom => pallets_uom
+ 
+     generator = roi.seeded_receipt_item_generator
+ 
+     assert_equal @sku.code, generator.sku_code
+     assert_equal 2, generator.number_of_skids
+     assert_equal 10, generator.unit_quantity_per_skid
+-    assert_equal "cases", generator.unit_of_measure
++    assert_equal pallets_uom, generator.unit_uom
+     assert_equal roi.id, generator.receive_order_item_id
+   end
+ 
+@@ -382,29 +383,18 @@ class ReceiveOrderItemTest < ActiveSupport::TestCase
+     assert_equal roi.id, generator.receive_order_item_id
+   end
+ 
+-  context "#unfulfilled_quantity_in_uom" do
+-    should "work" do
+-      default_sku.update_attributes! unit_of_measure: Sku::CASES
+-
+-      order_item = ReceiveOrderItem.make! unit_quantity: 5, unit_of_measure: Sku::PALLETS
+-
+-      r = Receipt.make!
+-      r.receipt_items.make! :legacy_uom, receive_order_item: order_item, unit_quantity: 1, unit_of_measure: Sku::PALLETS
+-
+-      assert_equal 4, order_item.unfulfilled_quantity_in_uom(Sku::PALLETS)
+-    end
+-  end
+-
+   def test_should_have_each_quantity_on_create
+     @sku.update_attributes! :unit_of_measure => 'cases', :cases_per_pallet => 10, :eaches_per_case => 5
+-    roi = @receive_order.receive_order_items.create! :sku => @sku, :unit_quantity => 25, :unit_of_measure => 'cases'
++    cases_uom = UomContext.uom(@sku, "cases")
++    roi = @receive_order.receive_order_items.create! :sku => @sku, :quantity => Quantity.new(25, cases_uom)
+ 
+     assert_equal 125.0, roi.each_quantity
+   end
+ 
+   def test_should_update_each_quantity_on_update
+     @sku.update_attributes! :unit_of_measure => 'cases', :cases_per_pallet => 10, :eaches_per_case => 5
+-    roi = @receive_order.receive_order_items.create! :sku => @sku, :unit_quantity => 25, :unit_of_measure => 'cases'
++    cases_uom = UomContext.uom(@sku, "cases")
++    roi = @receive_order.receive_order_items.create! :sku => @sku, :quantity => Quantity.new(25, cases_uom)
+     roi.update_attributes! :unit_quantity => 13, :unit_of_measure => "pallets"
+ 
+     assert_equal 650.0, roi.each_quantity
+@@ -415,7 +405,7 @@ class ReceiveOrderItemTest < ActiveSupport::TestCase
+     roi = ro.receive_order_items.make!
+ 
+     sku = Sku.make!
+-    roi.update_attributes! :sku => sku
++    roi.update_attributes! :sku => sku, :unit_uom => sku.base_uom
+     assert_equal true, roi.errors.empty?
+     assert_equal sku, roi.reload.sku
+   end

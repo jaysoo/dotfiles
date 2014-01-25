@@ -1,0 +1,21 @@
+describe("Quoting.QuoteInfoCtrl", function() {
+  var QuoteInfoCtrl = require("Quoting.QuoteInfoCtrl")
+
+  var ctrl, repo
+
+  beforeEach(function() {
+    repo = new Stub('create')
+    ctrl = new QuoteInfoCtrl(repo)
+  })
+
+  describe("creating quotes", function(){
+    it("calls the repo", function(){
+      ctrl.createQuote({
+        quotedRunRate: 1000,
+        scheduledHours: 100
+      })
+
+      expect(repo.create).toHaveBeenCalledWith({quotedRunRate: 1000, scheduledHours: 100})
+    })
+  })
+})

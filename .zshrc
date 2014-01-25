@@ -5,6 +5,9 @@ alias ..5='cd ../../../../..'
 alias ..6='cd ../../../../../..'
 alias ..7='cd ../../../../../../..'
 alias gl='git log --graph --pretty="format:%C(yellow)%h%Cblue%d%Creset %s %C(white) %an, %ar%Creset"'
+alias wow='git status'
+alias such='git'
+alias very='git'
 
 source $HOME/zshrc.sh
 

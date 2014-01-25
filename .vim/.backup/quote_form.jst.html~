@@ -1,0 +1,27 @@
+<form ng-submit="quoteCtrl.updateQuote(quoteCtrl.form)">
+  <div class="infoGroup infoGroup-3-column">
+    <div class="infoGroup-body">
+      <div class="infoBit">
+        <div class="infoBit-label">
+          <label>
+            [["QUOTING_LBL|Status" | i18n]]:
+          </label>
+        </div>
+        <div class="infoBit-value">
+          <select type="text" ng-model="quoteCtrl.form.status" 
+            ng-options="status.value as status.label for status in quoteCtrl.quoteStatuses">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="button button-small" ng-click="quoteCtrl.switchToShow()">
+      [["QUOTING_LBL|Cancel" | i18n]]
+    </button>
+
+    <button type="submit" class="button button-primary button-small">
+      [["QUOTING_LBL|Save" | i18n]]
+    </button>
+  </div>
+</form>

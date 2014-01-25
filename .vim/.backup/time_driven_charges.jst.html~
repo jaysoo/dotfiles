@@ -1,0 +1,51 @@
+<form 
+    ng-controller="TimeDrivenChargesCtrl as ctrl" 
+    ng-submit="ctrl.createQuote(ctrl.form)">
+
+  <div class="form-row">
+    <label class="form-row-label">
+      [["QUOTING|Quoted run rate:" | i18n]]
+    </label>
+    <div class="form-row-field">
+      <input type="text" ng-model="ctrl.form.quotedRunRate"/>
+    </div>
+  </div>
+
+  <div class="form-row">
+    <label class="form-row-label">
+      [["QUOTING|Scheduled hours:" | i18n]]
+    </label>
+    <div class="form-row-field">
+      <input type="text" ng-model="ctrl.form.scheduledHours"/>
+    </div>
+  </div>
+
+  <table class="table">
+    <thead>
+    <tr>
+        <td>Fixed Charge</td>
+        <td>Total Cost</td>
+        <td>Cost/hour</td>
+        <td>Cost/case</td>
+        <td>Markup</td>
+        <td>Price</td>
+    <tr>
+    </thead>
+    <tbody>
+    <tr ng-repeat="charge in ctrl.form.fixedCharges">
+      <td><input type="text" ng-model="charge.name"/></td>
+      <td><label>$ <input type="text" ng-model="charge.totalCost" style="width: 90%"/></label></td>
+      <td>[[ ctrl.form.costPerHour(charge) | currency ]]</td>
+      <td>[[ ctrl.form.costPerCase(charge) | currency ]]</td>
+      <td><label><input type="text" ng-model="charge.markup"  style="width: 50px"/>%</label></td>
+      <td>[[ ctrl.form.pricePerCase(charge) | currency ]]</td>
+    </tr>
+    </tbody>
+  </table>
+
+  <div class="actions">
+    <button type="submit" class="button button-primary">
+      [["QUOTING|Create" | i18n]]
+    </button>
+  </div>
+</form>

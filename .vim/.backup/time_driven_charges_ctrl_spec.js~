@@ -1,0 +1,23 @@
+describe("Quoting.TimeDrivenChargesCtrl", function() {
+  var TimeDrivenChargesCtrl = require("Quoting.TimeDrivenChargesCtrl")
+
+  var ctrl, repo
+
+  beforeEach(function() {
+    repo = new Stub('create')
+    ctrl = new TimeDrivenChargesCtrl(repo)
+  })
+
+  describe("creating quotes", function(){
+    var repo, getQueryParameter
+
+    it("calls the repo", function(){
+      ctrl.createQuote({
+        quotedRunRate: 1000,
+        scheduledHours: 100
+      })
+
+      expect(repo.create).toHaveBeenCalledWith({quotedRunRate: 1000, scheduledHours: 100})
+    })
+  })
+})

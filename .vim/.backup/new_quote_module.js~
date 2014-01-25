@@ -1,0 +1,26 @@
+define("Quoting.NewQuote", function(module){
+  var withLoading = require("WithLoadingWrapper").getFactoryWrapper()
+  var au = require("AngularUtils")
+
+  var common = require("AngularCommon")
+  var nuErrors = require("AngularErrors")
+  var i18n = require("AngularI18n")
+  var dialog = require("AngularDialog")
+  var ajaxWrapper = require("AngularAjaxWrapper")
+  var uiBootstrap = angular.module('ui.bootstrap')
+
+  var m = angular.module("NewQuote", au.names(common, nuErrors, i18n, uiBootstrap, dialog, ajaxWrapper))
+
+  m.controller("TimeDrivenChargesCtrl", [
+    'quotesRepo',
+    require("Quoting.TimeDrivenChargesCtrl")
+  ])
+
+  m.factory("quotesRepo", [
+    '$http',
+    'nuErrorCallback',
+    require("Quoting.QuotesRepo")
+  ])
+
+  module.exports = m
+})

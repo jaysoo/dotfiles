@@ -1,0 +1,384 @@
+class Reports::JobProductivity < ActiveRecord::BaseWithoutTable
+  include Reports::JobMetrics
+  include Reports::TimeReportMetrics
+  include Reports::Reports2
+
+  include Utils::InitializeAssociation
+  include Reports::WhereClauseBuilder
+  include Reports::OrderClauseBuilder
+
+  # for Reports::Reports2
+  def allowed_filter_fields
+    filter_customer_fields FILTER_FIELDS
+  end
+
+  # TODO: Remove this method when the WhereClauseBuilder is refactored
+  def allowed_filters
+    FILTER_FIELDS
+  end
+
+  # for Reports::Reports2
+  def allowed_data_fields
+    filter_customer_fields DATA_FIELDS
+  end
+
+  # for Reports::Reports2
+  def allowed_order_by_fields
+    filter_customer_fields SORT_FIELDS
+  end
+
+  # for Reports::Reports2
+  def default_order_by
+    "actual_start_at"
+  end
+
+  # for Reports::Reports2
+  def default_order_by_direction
+    Reports::Reports2::DESC
+  end
+
+  def secondary_order_by
+    ["job_id"]
+  end
+
+  def title
+    _('Job Productivity Report')
+  end
+
+  def model_field
+    :job
+  end
+
+  def model_name
+    _("Job")
+  end
+
+  def per_page
+    250
+  end
+
+  def self.data_field_mappings
+    {}.tap do |h|
+      h[:number_of_time_reports] = _('Number of time reports')
+      h[:number_of_personnel] = _('Number of personnel')
+      h[:actual_start_at] = _('Actual start at')
+      h[:person_hours] = _('Person hours')
+      h[:person_hours_payable] = _('Person hours payable')
+      h[:person_hours_productive] = _('Person hours productive')
+      h[:customer_name] = _('Customer name')
+      h[:project_code] = _('Project code')
+      h[:item_alternate_code_1] = _('Item alternate code 1')
+      h[:item_alternate_code_2] = _('Item alternate code 2')
+      h[:item_class_name] = _('Item class name')
+      h[:item_code] = _('Item code')
+      h[:item_description] = _('Item description')
+      h[:item_type_name] = _('Item type name')
+      h[:item_category_name] = _('Item category name')
+      h[:item_family_name] = _('Item family name')
+      h[:line_name] = _('Line name')
+      h[:line_leader_name] = _('Line leader name')
+      h[:units_expected] = _('Units expected')
+      h[:units_produced] = _('Units produced')
+      h[:units_remaining] = _('Units remaining')
+      h[:percent_complete] = _('Percent complete')
+      h[:job_status] = _('Job status')
+      h[:job_comments] = _('Job comments')
+      h[:duration] = _('Duration')
+      h[:efficiency] = _('Efficiency')
+      h[:person_hours_per_unit] = _('Person hours per unit')
+      h[:units_produced_per_hour] = _('Units produced per hour')
+      h[:site_name] = _('Site name')
+      h[:standard_units_per_hour] = _('Standard units per hour')
+      h[:standard_person_hours_per_unit] = _('Standard person hours per unit')
+      h[:reconciliation_status] = _('Reconciliation status')
+      h[:unit_of_measure] = _('Unit of measure')
+      h[:machine_hours] = _('Machine hours')
+      h[:machine_hours_productive] = _('Machine hours productive')
+      h[:machine_hours_per_unit] = _('Machine hours per unit')
+      h[:expected_units_per_person_hour] = _('Expected units per person hour')
+      h[:actual_units_per_person_hour] = _('Actual units per person hour')
+      h[:pallets_produced] = _('Pallets Produced')
+      h[:reference] = _('Job reference')
+      h[:scheduled_start_at] = _('Scheduled start at')
+    end
+  end
+
+  DATA_FIELDS = self.data_field_mappings.keys
+
+  FILTER_FIELDS = [:actual_start_at, :scheduled_start_at, :customer_name, :project_code,
+    :item_alternate_code_1, :item_alternate_code_2, :item_class_name, :item_code, :item_description,
+    :item_type_name, :item_category_name, :item_family_name, :line_name, :line_leader_name,
+    :reconciliation_status, :units_expected, :job_status, :reference]
+
+  SORT_FIELDS = [:actual_start_at, :scheduled_start_at, :customer_name, :project_code,
+    :item_code, :item_description, :item_type_name, :item_category_name, :item_family_name,
+    :line_name, :line_leader_name,
+    :units_expected, :job_status]
+
+  belongs_to :sku
+  column :sku_id, :integer
+  belongs_to :job
+  column :job_id, :integer
+
+  # TODO: columns that are from the TimeReportMetrics queries - somehow be good to put them there
+  column :actual_start_at, :datetime
+  column :actual_end_at, :datetime
+  column :scheduled_start_at, :datetime
+  column :unpaid_hours, :decimal
+  column :person_hours, :decimal
+  column :machine_hours, :decimal
+  column :break_hours, :decimal
+  column :number_of_personnel, :integer
+  column :number_of_time_reports, :integer
+  column :standard_units_per_hour, :decimal
+
+  column :project_code, :string
+  column :customer_name, :string
+  column :item_alternate_code_1, :string
+  column :item_alternate_code_2, :string
+  column :item_class_name, :string
+  column :item_code, :string
+  column :item_description, :string
+  column :item_type_name, :string
+  column :item_category_name, :string
+  column :item_family_name, :string
+  column :line_name, :string
+  column :line_leader_name, :string
+  column :units_expected, :decimal
+  column :job_status, :string
+  column :job_comments, :string
+  column :units_per_hour, :decimal
+  column :suggested_people, :decimal
+  column :personnel, :decimal
+
+  column :finalized_at, :datetime
+  column :reconciliation_status_integer, :integer
+  column :reconciliation_status, :integer
+
+  column :pallets_produced, :integer
+
+  column :reference, :string
+
+  def csv_column_type_for(field)
+    csv_cols = {
+      :number_of_time_reports => :decimal,
+      :number_of_personnel => :decimal,
+      :actual_start_at => :datetime,
+      :person_hours => :decimal,
+      :person_hours_payable => :decimal,
+      :units_expected => :decimal,
+      :units_produced => :decimal,
+      :units_remaining => :decimal,
+      :percent_complete => :decimal,
+      :job_status => :translated_string,
+      :duration => :decimal,
+      :efficiency => :decimal,
+      :person_hours_per_unit => :decimal,
+      :units_produced_per_hour => :decimal,
+      :standard_units_per_hour => :decimal,
+      :standard_person_hours_per_unit => :decimal,
+      :reconciliation_status => :translated_string,
+      :unit_of_measure => :translated_string,
+      :machine_hours => :decimal,
+      :machine_hours_productive => :decimal,
+      :machine_hours_per_unit => :decimal,
+      :expected_units_per_person_hour => :decimal,
+      :actual_units_per_person_hour => :decimal,
+      :pallets_produced => :decimal
+    }
+    csv_cols[field] || super
+  end
+
+  def humanize_field column_name
+    Reports::JobProductivity.data_field_mappings[column_name.to_sym]
+  end
+
+  def alias_mapping_for_query
+   {"item_class_name" => "iclass.name", "item_alternate_code_1" => "s.alternate_code_1", "item_alternate_code_2" => "s.alternate_code_2", "actual_start_at" => "j.started_at", "project_code" => "prj.code", "line_leader_name" => "u.login", "job_status" => "j.status",
+   "item_type_name" => "it.name", "item_family_name" => "ifam.name", "item_category_name" => "ic.name", "line_name" => "loc.name", "customer_name" => "c.name", "item_code" => "s.code", "item_description" => "s.description", "units_expected" => "j.units_expected", "reference" => "j.reference",
+   "schedueld_started_at" => "j.schedueld_started_at"}
+  end
+
+  BASE_QUERY = <<-SQL
+    SELECT
+      j.id AS job_id,
+      j.status AS job_status,
+      j.units_expected,
+      j.line_reconciliation_id AS line_reconciliation_id,
+      j.reconciliation_status as reconciliation_status_integer,
+      j.comments as job_comments,
+      j.eaches_produced,
+      j.started_at as actual_start_at,
+      j.scheduled_start_at as scheduled_start_at,
+      j.reference,
+      loc.name AS line_name,
+      c.name AS customer_name,
+      prj.id AS project_id,
+      prj.code as project_code, prj.sku_id AS sku_id,
+      u.login AS line_leader_name,
+      sites.name AS site_name,
+      s.alternate_code_1 as item_alternate_code_1,
+      s.alternate_code_2 as item_alternate_code_2,
+      s.code AS item_code,
+      s.description AS item_description,
+      s.unit_of_measure,
+      it.name AS item_type_name,
+      ic.name AS item_category_name,
+      iclass.name AS item_class_name,
+      ifam.name AS item_family_name,
+      lr.finalized_at,
+      COALESCE((ap.standard_units_per_hour * ap.efficiency), 0) AS units_per_hour,
+      COALESCE(ap.standard_units_per_hour, 0) AS standard_units_per_hour,
+      COALESCE(ap.personnel, 0) AS personnel,
+      ap.id as ap_id,
+      j.pallets_produced
+    FROM
+      jobs AS j
+        LEFT JOIN line_reconciliations AS lr ON j.line_reconciliation_id = lr.id AND lr.site_id IN (:site_ids)
+        LEFT JOIN sites ON j.site_id = sites.id
+        LEFT JOIN users AS u ON j.accepted_by_id = u.id
+        LEFT JOIN lines AS l on j.line_id = l.id
+          LEFT JOIN locations AS loc on l.location_id = loc.id AND l.site_id IN (:site_ids)
+        LEFT JOIN projects AS prj ON j.project_id = prj.id AND prj.site_id IN (:site_ids)
+          LEFT JOIN assembly_procedures AS ap ON prj.sku_id = ap.sku_id
+          LEFT JOIN customers AS c ON prj.customer_id = c.id
+          LEFT JOIN skus AS s ON prj.sku_id = s.id AND s.account_id IN (:account_ids)
+            LEFT JOIN item_categories as ic ON s.item_category_id = ic.id
+            LEFT JOIN item_types as it ON s.item_type_id = it.id
+            LEFT JOIN item_families as ifam ON s.item_family_id = ifam.id
+            LEFT JOIN item_classes as iclass ON s.item_class_id = iclass.id
+  SQL
+
+  AIS_QUERY = <<-SQL
+    SELECT
+      ai.assembly_procedure_id as ap_id, sum(ai.suggested_people) as suggested_people_danger
+    FROM assembly_steps as ai
+    WHERE ai.assembly_procedure_id IN (:ap_ids)
+    GROUP BY ai.assembly_procedure_id
+  SQL
+
+  def units_produced_per_hour
+    duration == 0 ? 0.0 : units_produced / duration
+  end
+
+  def units_remaining
+    self.units_expected.to_f - units_produced
+  end
+
+  def percent_complete
+    self.units_expected.to_f != 0 ? units_produced / self.units_expected : 0.0
+  end
+
+  def person_hours_per_unit
+    units_produced == 0 ? 0 : person_hours_productive / units_produced
+  end
+
+  def machine_hours_per_unit
+    units_produced == 0 ? 0 : machine_hours_productive / units_produced
+  end
+
+  def standard_person_hours_per_unit
+    return 0 unless personnel
+    self.standard_units_per_hour == 0 ? 0 : personnel / standard_units_per_hour
+  end
+
+  def reconciliation_status
+    label_for = {
+      Job::NOT_RECONCILED => _("Needs to be reconciled"),
+      Job::DO_NOT_RECONCILE => _("Never reconcile"),
+      Job::RECONCILIATION_IN_PROGRESS => _("Reconciliation in progress"),
+      Job::RECONCILED => _("Reconciliation complete")}
+    label_for[self.reconciliation_status_integer]
+  end
+
+  def expected_units_per_person_hour
+    personnel == 0 ? 0 : units_per_hour / personnel
+  end
+
+  def actual_units_per_person_hour
+    php = person_hours_productive
+    php == 0 ? 0 : units_produced / person_hours_productive
+  end
+private
+  FIELDS_CUSTOMER_ROLE_CANNOT_SEE = [:customer_name, :line_leader_name, :efficiency, :duration, :number_of_personnel,
+                                      :number_of_time_reports, :person_hours, :person_hours_payable, :person_hours_per_unit,
+                                      :person_hours_productive, :reconciliation_status, :standard_person_hours_per_unit,
+                                      :standard_units_per_hour, :units_produced_per_hour,
+                                      :machine_hours, :machine_hours_productive, :machine_hours_per_unit, :item_family_name, :job_comments,
+                                      :expected_units_per_person_hour, :actual_units_per_person_hour]
+
+  def filter_customer_fields all_fields
+    user.role == User::CUSTOMER ? all_fields - FIELDS_CUSTOMER_ROLE_CANNOT_SEE : all_fields
+  end
+
+  def job_productivity_query temp_table, order_by_options
+    <<-SQL
+      SELECT *,
+        COALESCE(suggested_people_danger, 0) as suggested_people
+      FROM #{temp_table} AS base
+      LEFT JOIN (#{AIS_QUERY}) AS ai_query USING (ap_id)
+      LEFT JOIN (#{PERSONNEL_ONLY_TIME_REPORTS_QUERY}) AS personnel_only_time_reports_query USING (job_id)
+      LEFT JOIN (#{PERSONNEL_UNPAID_HOURS_QUERY}) AS unpaid_hours_query USING (job_id)
+      LEFT JOIN (#{PERSONNEL_BREAK_HOURS_QUERY}) AS break_hours_query USING (job_id)
+      LEFT JOIN (#{MACHINE_ONLY_TIME_REPORTS_QUERY}) as machine_only_time_reports_query USING (job_id)
+      LEFT JOIN (#{MACHINE_BREAK_HOURS_QUERY}) AS machine_break_hours_query USING (job_id)
+      LEFT JOIN (#{ALL_TIME_REPORTS_QUERY}) AS all_time_reports_query USING (job_id)
+      #{order_by_clause(order_by_options)}
+    SQL
+  end
+
+  def internal_results sites, page_options, order_by_options
+    filters = params[:query].dup
+    # TODO: order_by/order_direction should mimic the format of the filters once we
+    # want to allow users to specify multiple order_by's
+    order_by_options[:order_by] = [order_by_options[:order_by], "job_id"]
+    order_by_options[:order_direction] = [order_by_options[:order_direction], "asc"]
+
+    filters = Reports::PortalHelper.filters_with_customer(filters, @user) if @user.customer?
+
+    where_clause, where_clause_values = build_where_clause(filters, self, true, self.class, alias_mapping_for_query)
+    return nil if self.errors[:base].present?
+
+    site_ids = sites.collect {|s| s.id}
+
+    temp_table = "job_productivity_#{(Time.zone.now.to_f * 10000).to_i}_#{Process.pid}"
+
+    create_table = <<-SQL
+      #{BASE_QUERY}
+      #{where_clause} AND j.site_id in (:site_ids)
+      #{order_by_clause(order_by_options)}
+    SQL
+    create_params = {:site_ids => site_ids, :account_ids => sites.map(&:account_id).uniq}.merge(where_clause_values)
+
+    results = transaction do
+      self.class.find_by_sql([<<-SQL, create_params])
+        CREATE TEMPORARY TABLE #{temp_table} ON COMMIT DROP AS (
+          #{create_table} #{Reports::Availability.limit(page_options)}
+        );
+      SQL
+
+      self.class.connection.execute("ANALYZE #{temp_table}")
+      job_ids = self.class.find_by_sql("SELECT job_id FROM #{temp_table}").map {|q| q.job_id}
+      ap_ids = self.class.find_by_sql("SELECT distinct(ap_id) FROM #{temp_table}").map {|q| q.ap_id}
+      self.class.find_by_sql([job_productivity_query(temp_table, order_by_options), {:ap_ids => ap_ids, :job_ids => job_ids}])
+    end
+
+    results = WillPaginate::Collection.create(page_options[:page], page_options[:per_page]) do |pager|
+      pager.replace results
+      count = self.class.find_by_sql([<<-SQL, create_params]).first.count.to_i
+        SELECT COUNT(*) FROM (#{create_table}) as count
+      SQL
+      pager.total_entries = count
+    end
+
+    init_belongs_to results, :sku
+    init_belongs_to results, :job
+    results
+  end
+
+  def self.tooltips account
+    {
+    data_field_mappings[:pallets_produced] => s_("JOB_PRODUCTIVITY_MSG|Total number of unique pallets produced on the Job")
+    }
+  end
+end

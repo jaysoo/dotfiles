@@ -1,0 +1,7 @@
+module CustomerRepository
+  extend self
+
+  def find(site, id)
+    Customer.scoped_by(site).find(id)
+  end
+end

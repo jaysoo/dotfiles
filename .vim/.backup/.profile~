@@ -1,0 +1,58 @@
+export NODE_PATH=/Users/jack/local/lib/jsctags/:$NODE_PATH
+
+[[ -s /Users/jack/.nvm/nvm.sh ]] && . /Users/jack/.nvm/nvm.sh # This loads NVM
+
+export PATH=/Library/PostgreSQL/9.1/bin:$PATH
+# export PATH=$HOME/.rbenv/bin:$PATH
+# eval "$(rbenv init -)"
+
+source ~/.rvm/scripts/rvm
+export PATH="$HOME/.rvm/bin:$PATH:/usr/local/sbin"
+
+# Run 0.8 by default
+nvm use 0.8
+
+source /usr/local/bin/virtualenvwrapper.sh
+
+alias d="cd $HOME/d"
+
+alias zac='zeus acceptance -r ./spec/support/formatters/print_before_run_formatter.rb -f PrintBeforeRunFormatter'
+alias ac='rspec -r ./spec/support/formatters/print_before_run_formatter.rb -f PrintBeforeRunFormatter'
+alias zjh='zeus rake jasmine:run_all_headless'
+alias zi18n='zeus rake i18n:js:extract'
+
+alias acktrailers='ack --ignore-dir log --ignore-dir db --ignore-dir test/unit/wms --ignore-dir .jhw-cache/ --ignore-dir domain/wms/wms  --ignore-dir config --ignore-dir test/functional/wms/ --ignore-dir test/unit/presenters/wms/ --ignore-dir spec/unit/domain/icg/icg/scopes/'
+
+alias rmswp='find . -name "*.sw[a-z]" | xargs rm'
+alias killacceptance="ps aux | grep acceptance | awk '{print $2}' | xargs kill -9"
+
+export JSHINT_CONFIG=$HOME/.jshintrc
+export NODE_PATH=/Users/jack/local/lib/jsctags/:$NODE_PATH
+
+__git_files () { 
+    _wanted files expl 'local files' _files     
+}
+
+alias ..2='cd ../..'
+alias ..3='cd ../../..'
+alias ..4='cd ../../../..'
+alias ..5='cd ../../../../..'
+alias ..6='cd ../../../../../..'
+alias ..7='cd ../../../../../../..'
+
+
+alias battery_status='ioreg -l | grep -i capacity | tr '\''\n'\'' '\'' | '\'' | awk '\''{printf("%.2f%%", $10/$5 * 100)}'\'''
+
+
+export RETHINKDB_HOST="localhost"
+export RETHINKDB_PORT="28015"
+export RETHINKDB_AUTH="testkey"
+export PORT="9292"
+export RACK_ENV="development"
+export AUTH0_CLIENT_ID="ReswEjmAG5THT4kfnFNTP8DPLMOx3SEU"
+export AUTH0_CLIENT_SECRET="Tk8vyONJCYAnsa_V8_w3zom4NJ01k_265woeemWxj5uwHehumxtnSgI4DFNQLfSw"
+export AUTH0_DOMAIN="nulogy-books.auth0.com"
+export RACK_SESSION_SECRET="008971a3b63e40128fc05a54ecd2329d"
+export FIREBASE_SECRET="Hh6Q8AYZyAhKOkmCzdVdCEkopNLBd9XBhY9uNQGP-IBsM0EEu6"
+export MONGOHQ_URL=mongodb://localhost:27017/books
+export VIMCLOJURE_SERVER_JAR="$HOME/lib/vimclojure/server-2.3.6.jar"

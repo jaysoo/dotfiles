@@ -1,0 +1,11 @@
+define(['angular'], function(angular) {
+  'use strict';
+
+  var m = angular.module('myModule', []);
+
+  require(['directives/doge'], function(doge) {
+    m.directive(doge);
+  });
+
+  return m;
+});

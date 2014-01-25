@@ -1,0 +1,39 @@
+define("Picking.ShipOrderReservationsRepo", function(module){
+  var _f = require("FunctionalExt"),
+      ErrorSetter = require("ErrorSetter")
+
+  function ShipOrderReservationsRepo($http, nuErrorCallback) {
+    var reservationsDeserializer = require("Picking.ReservationsDeserializer")
+    var reservationsSerializer = require("Picking.ReservationsSerializer")
+
+
+    var deserialize = _.compose(reservationsDeserializer, _f.dot("data"))
+
+    return {
+      reservationItemsToShow: function (shipOrderId) {
+        return $http({method: 'GET', url: '/ship_order_reservations/' + shipOrderId + '/reservations_items_to_show'}).then(deserialize)
+      },
+
+      reservationItemsToEdit: function (shipOrderId) {
+        return $http({method: 'GET', url: '/ship_order_reservations/' + shipOrderId + '/reservations_items_to_edit'}).then(deserialize)
+      },
+
+      reserve: function (shipOrderId, reservationItems) {
+        var payload = {data: reservationsSerializer(reservationItems)}
+
+        var errorCallback = nuErrorCallback(function(response){
+          _.each(reservationItems.all(), function(item){
+            var responseItem = _.find(response, _f.matchJson("reservation_item.sku_code", item.skuCode));
+            ErrorSetter.create(item, {root: 'reservation_item'})(responseItem);
+          });
+        });
+
+        return $http.put('/ship_order_reservations/' + shipOrderId + '/reserve', payload)['catch'](errorCallback)
+      }
+    }
+  }
+
+  ShipOrderReservationsRepo.$inject = ["$http", "nuErrorCallback"]
+
+  module.exports = ShipOrderReservationsRepo
+})

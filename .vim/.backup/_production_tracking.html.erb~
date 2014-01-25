@@ -1,0 +1,48 @@
+<%= page_subsection "production_tracking" do %>
+
+  <%= page_column :width => "37%", :padding_horizontal => "15px", :padding_vertical => "17px" do %>
+    <%= column_title _("Total {{{unit_of_measure}}} to Produce").i(:unit_of_measure => h(format_unit_of_measure job.project.sku)) %>
+    <%= metric_row do %>
+      <%= metric_column _("Expected"), format_number_short(job.units_expected), :class => 'flow' %>
+      <%= metric_column _("Actual"), format_number_short(job.units_produced), :class => 'flow' %>
+      <%= metric_column _("Complete"), format_percentage(job.percent_complete), :class => 'flow' %>
+    <% end %>
+  <% end %>
+
+  <%= page_column column_options(job.project.site, :production_metrics_units_per_hour).merge(:width => '37%') do %>
+    <h4><%= _("{{{unit_of_measure}}} per Hour").i(:unit_of_measure => format_unit_of_measure(job.project.sku)) %>
+      <a onclick="$('production_metrics_person_hours_per_unit').toggle();$('production_metrics_units_per_hour').toggle();">
+        (<%= _("See Person Hours per {{{unit_of_measure}}}").i(:unit_of_measure => format_unit_of_measure(job.project.sku)) %>...)
+      </a>
+    </h4>
+    <%= metric_row do %>
+      <%= metric_column _("Standard"), format_number_short(job.project.sku.standard_units_per_hour), :class => 'flow' %>
+      <%= metric_column _("Actual"), format_number_short(job.units_produced_per_hour), :class => 'flow' %>
+      <%= metric_column _("Expected"), format_number_short(job.expected_instant_units_per_hour), :class => 'flow' %>
+    <% end %>
+  <% end %>
+  <%= page_column column_options(job.project.site, :production_metrics_person_hours_per_unit).merge(:width => '37%') do %>
+    <h4> <%= _("Person Hours per {{{unit_of_measure}}}").i(:unit_of_measure => format_unit_of_measure(job.project.sku)) %>
+      <a onclick="$('production_metrics_person_hours_per_unit').toggle();$('production_metrics_units_per_hour').toggle();">
+        ( <%= _("See {{{unit_of_measure}}} per Hour...").i(:unit_of_measure => format_unit_of_measure(job.project.sku)) %> )
+      </a>
+    </h4>
+    <%= metric_row do %>
+      <%= metric_column _("Standard"), format_number(job.project.sku.assembly_procedure.standard_person_hours_per_unit), :class => 'flow' %>
+      <%= metric_column _("Actual"), format_number(job.person_hours_per_unit), :class => 'flow' %>
+    <% end %>
+  <% end %>
+
+
+  <%= page_column :width => "16%", :padding_horizontal => "15px", :padding_vertical => "17px" do %>
+    <%= column_title _("Performance") %>
+    <%= metric_row do %>
+      <%= metric_column _("Old Efficiency"), format_percentage(job.calculate_efficiency), :class => 'flow' %>
+    <% end %>
+    <%= metric_row do %>
+      <%= metric_column _("New Efficiency"), format_percentage(job.calculate_new_efficiency), :class => 'flow' %>
+    <% end %>
+  <% end %>
+
+  <%= page_subsection_footer %>
+<% end %>

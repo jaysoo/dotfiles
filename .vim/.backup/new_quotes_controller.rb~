@@ -1,0 +1,8 @@
+class NewQuotesController < ApplicationController
+
+  layout "single_page"
+
+  def new
+  end
+end
+

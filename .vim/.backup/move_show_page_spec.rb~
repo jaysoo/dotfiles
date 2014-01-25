@@ -1,0 +1,84 @@
+require "spec_helper"
+
+
+describe "Move Show Page", type: :request, :js => true do
+  before(:each) do
+    default_site.update_attributes! inventory: true, use_job_wip_pallet: true, production_picking: true
+    login
+  end
+
+  it "errors when expected exists for different project than current job's project" do
+    project = FactoryGirl.create(:project)
+    job = FactoryGirl.create(:job, :project => project)
+    epm = FactoryGirl.create(:expected_pallet_move)
+    other_project = FactoryGirl.create(:project)
+    PalletAssigner.assign(other_project, epm.pallet)
+    move = epm.move
+
+    goto MoveShowPage.new(move.id) do
+      click_button "Edit Move"
+      find_button "Save Changes"
+      page.select("Job #{job.id} - Started", :from => "move_job_id")
+      click_button "Save Changes"
+      page.should have_content("This Job cannot be associated to this Move because these pallets are not Assigned to the Job's Project: #{epm.pallet.number}")
+    end
+  end
+
+  context "assignment validations" do
+    it "cannot move from an unassigned Pallet to a WIP Pallet" do
+      move = FactoryGirl.create(:move, job: default_job)
+      pallet = FactoryGirl.create(:pallet, number: '12345')
+      sub = FactoryGirl.create(:bom_item).subcomponent
+      inv = FactoryGirl.create(:inventory_adjustment, pallet: pallet, sku: sub)
+
+      goto MoveShowPage.new(move.id) do
+        create_pallet_move(inv.pallet.number)
+
+        page.should have_content("Inventory cannot be moved because Pallet '12345' is assigned to nothing and Pallet 'WIP (Job #{default_job.id})' is assigned to Project #{default_project.id} - Main Project.")
+      end
+    end
+  end
+
+  context "moving items to line" do
+    it "fills to location field with name of line" do
+      default_site.update_attributes! use_job_wip_pallet: false
+
+      job_page = JobShowPage.new(default_job.id)
+      job_page.visit
+
+      move_page = job_page.move_items_to_line
+
+      within "#new_pallet_move" do
+        page.should have_content default_job.line.name
+      end
+
+      move_page.start
+
+      within "#new_pallet_move" do
+        page.should have_content default_job.line.name
+      end
+    end
+  end
+
+  context "ship order picking" do
+    before do
+      default_site.update_attributes! production_picking: false, ship_order_picking: true
+    end
+
+    it "skips assignment validations when moving to a WIP Pallet" do
+      move = FactoryGirl.create(:move, job: default_job)
+      pallet = FactoryGirl.create(:pallet, number: '456789')
+      sub = FactoryGirl.create(:bom_item).subcomponent
+      inv = FactoryGirl.create(:inventory_adjustment, pallet: pallet, sku: sub)
+
+      goto MoveShowPage.new(move.id) do
+        create_pallet_move(inv.pallet.number)
+
+        within "#pallet_moves_table" do
+          page.should have_content(pallet.number)
+        end
+      end
+    end
+  end
+end
+

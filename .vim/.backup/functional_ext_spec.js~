@@ -1,0 +1,84 @@
+describe("FunctionalExt", function() {
+  var _f = require("FunctionalExt")
+
+  describe("skipEmpty", function(){
+    var func
+
+    beforeEach(function(){
+      func = _f.skipEmpty(_f.value("value"))
+    })
+
+    it("calls the function when all arguments are present", function(){
+      expect(func(1,2)).toEqual("value")
+    })
+
+    it("calls the function when no arguments", function(){
+      expect(func()).toEqual("value")
+    })
+
+    it("returns null when one of the arguments is null", function(){
+      expect(func("what", null)).toEqual(null)
+    })
+
+    it("allows override the empty value", function(){
+      var func = _f.skipEmpty(_f.value("value"), {empty: "EMPTY"})
+      expect(func(null)).toEqual("EMPTY")
+    })
+  })
+
+  describe("invoke", function(){
+    it("invokes a function on the given object", function(){
+      var obj = {func: _f.value("value")}
+      var invoker = _f.invoke("func")
+      expect(invoker(obj)).toEqual("value")
+    })
+  })
+
+  describe("attr", function(){
+    it("reads a model attr", function(){
+      var m = new Backbone.Model({key: 'value'})
+      var read = _f.attr("key")
+      expect(read(m)).toEqual("value")
+    })
+  })
+
+  describe("setAttr", function(){
+    it("sets a model attr", function(){
+      var m = new Backbone.Model({key: 'value'})
+      var setAttr = _f.setAttr("key", "newValue")
+      setAttr(m)
+      expect(m.get('key')).toEqual("newValue")
+    })
+  })
+
+  describe("matchJson", function(){
+    it("is true when matches", function(){
+      expect(_f.matchJson("key", 1)({key: 1})).toBeTruthy();
+    })
+
+    it("is false when does not match", function(){
+      expect(_f.matchJson("key", 1)({key: 2})).toBeFalsy();
+    })
+
+    it("is false when missing nested property", function(){
+      expect(_f.matchJson("key1.key2", 1)({})).toBeFalsy();
+    })
+  })
+
+  describe("second", function(){
+    it("returns the second element of the array", function(){
+      expect(_f.second([1,2])).toEqual(2)
+    })
+
+    it("returns undefined when no second element", function(){
+      expect(_f.second([1])).toBeUndefined()
+    })
+  })
+
+  describe("sum", function() {
+    it("returns the sum of all values", function() {
+      var sum = _f.sum([1, 2, 3, 4])
+      expect(sum).toEqual(10)
+    })
+  })
+})

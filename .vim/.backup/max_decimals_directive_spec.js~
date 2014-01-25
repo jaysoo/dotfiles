@@ -1,0 +1,42 @@
+describe("AngularNumbers.MaxDecimalsDirective", function() {
+  var directive = require("AngularNumbers.MaxDecimalsDirective")
+
+  var decimalSeparator
+
+  beforeEach(function() {
+    decimalSeparator = function() {
+      return '.'
+    }
+  })
+
+  describe("whenNewValueExceedsDecimalLimit", function() {
+    it("calls the function when new value exceeds decimal limit", function() {
+      var spy = jasmine.createSpy("decimalLimitExceededSpy")
+      var whenNewValueExceedsDecimalLimit = directive(decimalSeparator).whenNewValueExceedsDecimalLimit
+      whenNewValueExceedsDecimalLimit("1.1", 2, 1, spy)
+      expect(spy).toHaveBeenCalled()
+    })
+
+    it("does not call the function when new value within decimal limit", function() {
+      var spy = jasmine.createSpy("decimalLimitExceededSpy")
+      var whenNewValueExceedsDecimalLimit = directive(decimalSeparator).whenNewValueExceedsDecimalLimit
+      whenNewValueExceedsDecimalLimit("1.1", 2, 5, spy)
+      expect(spy).not.toHaveBeenCalled()
+    })
+
+    it("does not call the function when new character is in integer part", function() {
+      var spy = jasmine.createSpy("decimalLimitExceededSpy")
+      var whenNewValueExceedsDecimalLimit = directive(decimalSeparator).whenNewValueExceedsDecimalLimit
+      whenNewValueExceedsDecimalLimit("1.1", 0, 1, spy)
+      expect(spy).not.toHaveBeenCalled()
+    })
+
+    it("supports l10n", function() {
+      var spy = jasmine.createSpy("decimalLimitExceededSpy")
+      var commaSeparator = function() { return ',' }
+      var whenNewValueExceedsDecimalLimit = directive(commaSeparator).whenNewValueExceedsDecimalLimit
+      whenNewValueExceedsDecimalLimit("1,1", 2, 1, spy)
+      expect(spy).toHaveBeenCalled()
+    })
+  })
+})

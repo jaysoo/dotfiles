@@ -1,0 +1,47 @@
+describe("AngularNumbers", function() {
+  var AngularNumbers = require("AngularNumbers")
+
+  describe("nuMaxDecimals directive", function() {
+    var element, decimalSeparatorValue
+
+    beforeEach(module('numbers', function($provide) {
+      decimalSeparatorValue = '.'
+      $provide.value('decimalSeparator', function() {
+        return decimalSeparatorValue
+      })
+    }))
+
+    beforeEach(inject(function($rootScope, $compile) {
+      var scope = $rootScope.$new()
+      var directiveTmpl = '<input nu-max-decimals="1" />'
+
+      element = $compile(directiveTmpl)(scope)
+    }))
+
+    it("does not change the value when number of decimals is greater than max", function() {
+      element.val('0.1')
+      var e = $.Event('keypress', {
+        target: {selectionStart: 0}
+      })
+      e.which = 49
+      e.keyCode = 49
+      element.trigger(e)
+      expect(element.val()).toEqual('0.1')
+    })
+
+    it("handles non-decimal numbers", function() {
+      element.val('0.1')
+      element.val('14')
+      element.trigger('keypress')
+      expect(element.val()).toEqual('14')
+    })
+
+    it("handles l10n", function() {
+      decimalSeparatorValue = ','
+      element.val('0,1')
+      element.val('0,14')
+      element.trigger('keypress')
+      expect(element.val()).toEqual('0,1')
+    })
+  })
+})

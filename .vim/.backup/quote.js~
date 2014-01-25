@@ -1,0 +1,7 @@
+define("Quoting.Quote", function(module) {
+  function Quote(attrs) {
+    _.extend(this, attrs)
+  }
+
+  module.exports = Quote
+})

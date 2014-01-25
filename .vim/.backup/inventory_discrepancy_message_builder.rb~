@@ -1,0 +1,9 @@
+module InventoryDiscrepancyMessageBuilder
+  include ReservedInventoryMessageBuilder
+  extend self
+
+  def violation_string
+    raise 'bad'
+    s_("Cannot Create Adjustment because it will reduce {{{sku_code}}} inventory below the amount reserved. Reduce reserved quantities by {{{qty_needed_to_change}}} {{{uom}}} to create this Inventory Adjustment.<br/>Inventory reserved for: {{{reservable_list}}}")
+  end
+end

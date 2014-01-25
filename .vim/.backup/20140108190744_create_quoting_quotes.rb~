@@ -1,0 +1,11 @@
+class CreateQuotingQuotes < ActiveRecord::Migration
+  def change
+    create_table :quoting_quotes do |t|
+      t.integer :customer_id
+      t.date :effective_date
+      t.text :quoter
+
+      t.timestamps
+    end
+  end
+end

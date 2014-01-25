@@ -1,0 +1,82 @@
+class InventoryDiscrepanciesController < ApplicationController
+  permit "account"
+  skip_before_filter :check_permissions
+  permit "lead"
+  permit "mod_inventory"
+
+  include CustomOutputs
+  permit "minimum_inventory_adjustment_role", :only => [:new, :create]
+
+  def show
+    load_object
+  end
+
+  def new
+    build_object
+  end
+
+  def build_object
+    attributes = params[:inventory_discrepancy] || {}
+    attributes.merge!(:site => current_user.site, :user => current_user, :send_edi => true)
+    attributes[:add_adjustment_attributes] ||= {}
+    factory = InventoryDiscrepancyFactory.new(attributes)
+    @inventory_discrepancy = factory.build_frozen
+  end
+
+  def create
+    attributes = params[:inventory_discrepancy].merge(
+      :user_generated => true, :site => current_user.site, :user => current_user)
+    @inventory_discrepancy = InventoryDiscrepancyFactory.build(attributes)
+    if persist @inventory_discrepancy
+      redirect_to inventory_discrepancy_path(@inventory_discrepancy)
+    else
+      render :new, :status => 422
+    end
+  end
+
+  def print_pallet_tags
+    load_object
+    @pallet_tags = PalletTags.create_from_inventory_adjustments [@inventory_discrepancy.add_adjustment], params
+    render_pallet_tags(@pallet_tags)
+  end
+
+  private
+  def persist discrepancy
+    set_quantity discrepancy
+    return false if discrepancy.has_errors?
+    discrepancy.persist
+  end
+
+
+  def set_quantity inventory_discrepancy
+    remove_adjustment = inventory_discrepancy.remove_adjustment
+    return unless remove_adjustment
+
+    qty = remove_adjustment.each_quantity_in_inventory
+    unless qty == 0
+      remove_adjustment.unit_quantity = -qty
+      remove_adjustment.unit_of_measure = Sku::EACHES
+    else
+      inventory_discrepancy.errors.add(:base, s_("INVENTORY_DISCREPANCY_MSG|Could not find inventory to change"))
+    end
+  end
+
+  def track_pallets?
+    return false if params[:add_adjustment][:sku_code].blank?
+    sku = current_user.account.skus.find_by_code(params[:add_adjustment][:sku_code])
+    return false unless sku
+    sku.track_pallets?
+  end
+
+  def load_object
+    @inventory_discrepancy = InventoryDiscrepancy.scoped_by(current_user.site).find params[:id]
+  end
+end
+
+
+
+
+
+
+
+

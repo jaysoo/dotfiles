@@ -1,0 +1,10 @@
+(function(root) {
+  'use strict';
+
+  var $ = root.jQuery;
+
+  $.fn.ngVal(function(value) {
+    this.val(value).trigger('input');
+    return this;
+  });
+}(this));

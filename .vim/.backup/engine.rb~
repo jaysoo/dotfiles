@@ -1,0 +1,14 @@
+module Quoting
+  class Engine < ::Rails::Engine
+    isolate_namespace Quoting
+
+    initializer :append_migrations do |app|
+      if !app.root.to_s.match root.to_s
+        app.config.paths["db/migrate"] += config.paths["db/migrate"].expanded
+      end
+    end
+  end
+end
+
+
+require "#{Quoting::Engine.root}/lib/quoting/core"

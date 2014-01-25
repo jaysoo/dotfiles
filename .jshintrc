@@ -46,6 +46,8 @@
       "Stub": false,
       "EmitterStub": false,
       "PromiseAdapter": false,
+      "module": false,
+      "inject": false,
       "sinon": false,
 
 

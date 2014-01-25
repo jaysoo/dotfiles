@@ -1,0 +1,41 @@
+'use strict'
+define('Quoting.ChargeItemFormCtrl', function(module){
+  var ChargeItem = require("Quoting.ChargeItem")
+
+  function ChargeItemFormCtrl($rootScope, quotesRepo, quote){
+    this.rootScope = $rootScope
+    this.quotesRepo = quotesRepo
+    this.quoteId = quote.id
+  }
+
+  _.extend(ChargeItemFormCtrl.prototype, {
+    newItem: function(){
+      this.item = new ChargeItem()
+    },
+
+    copyFrom: function(item){
+      this.item = new ChargeItem(item)
+    },
+
+    addChargeItem: function(){
+      this.quotesRepo.addChargeItem(this.quoteId, this.item).then(_.bind(function(item) {
+        this.rootScope.$broadcast('quoting:chargeItemAdded', item)
+        this.newItem()
+      }, this)
+    },
+
+    onCostPerUnitChange: function(){
+      this.item.onCostPerUnitChange()
+    },
+
+    onPercentageMarkupChange: function(){
+      this.item.onPercentageMarkupChange()
+    },
+
+    onChargePerUnitChange: function(){
+      this.item.onChargePerUnitChange()
+    }
+  })
+
+  module.exports = ChargeItemFormCtrl
+})

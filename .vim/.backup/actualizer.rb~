@@ -1,0 +1,114 @@
+module Moves
+  # This class is a utility class intended to be used by the Move class. It should be called
+  # inside the context of a transaction which will check errors on the move and rollback if necessary.
+  class Actualizer
+    def initialize args={}
+      @expected_unit_moves = args[:expected_unit_moves]
+      @pallet_move = args[:pallet_move]
+      @move = args[:move]
+
+      build_mediated_moves
+    end
+
+    def actualize
+      move_from_existing_location
+      return [] if have_any_errors?
+      move_to_new_location
+      @mediated_moves.map(&:unit_move)
+    end
+
+    private
+
+    def have_any_errors?
+      @expected_unit_moves.any? { |m| m.has_errors? }
+    end
+
+    def move_from_existing_location
+      @mediated_moves.each { |mediator| mediator.save_from_adjustment @move }
+    end
+
+    def move_to_new_location
+      @mediated_moves.each { |mediator| mediator.save_to_adjustment @move }
+    end
+
+    def build_unit_move expected_unit_move
+      UnitMove.new(
+        :sku => expected_unit_move.sku,
+        :from_pallet => expected_unit_move.from_pallet,
+        :move => @move,
+        :to_pallet => expected_unit_move.to_pallet,
+        :from_location => expected_unit_move.from_location,
+        :to_location => expected_unit_move.to_location,
+        :expiry_date => expected_unit_move.expiry_date,
+        :lot_code => expected_unit_move.lot_code,
+        :status => expected_unit_move.status,
+        :unit_quantity => expected_unit_move.unit_quantity,
+        :unit_of_measure => expected_unit_move.unit_of_measure,
+        :reserved_project_id => expected_unit_move.reserved_project_id,
+        :pallet_move => @pallet_move, :site => @move.site)
+    end
+
+    def build_mediated_moves
+      @mediated_moves = []
+      @expected_unit_moves.each { |eum| @mediated_moves << MovesMediator.new(build_unit_move(eum), eum) }
+    end
+
+  end
+
+  class MovesMediator
+    attr_accessor :unit_move, :expected_unit_move
+
+    def initialize(unit_move, expected_unit_move)
+      @unit_move = unit_move
+      @expected_unit_move = expected_unit_move
+    end
+
+    def save_to_adjustment move
+      save_adjustment :to, move
+
+      @unit_move.save
+
+      if should_validate_pallet_change?
+        error = Inventory::AssignmentValidator.validate_pallet_change(@unit_move)
+        @unit_move.errors.add(:base, error) if error
+      end
+
+      @unit_move.errors.full_messages.each do |msg|
+        move.errors.add(:base, msg)
+        @expected_unit_move.errors.add(:base, msg)
+      end
+    end
+
+    def save_from_adjustment move
+      save_adjustment :from, move do
+        if @unit_move.from_pallet and @unit_move.from_pallet.wip?
+          @unit_move.from_inventory_adjustment.positive_wip_quantity_check
+        end
+      end
+    end
+
+    def save_adjustment direction, move
+      @unit_move.send(:"build_#{direction}_adjustment").save
+      yield if block_given?
+      copy_errors direction, move
+    end
+
+    def copy_errors direction, move
+      unless @unit_move.send(:"#{direction}_inventory_adjustment").errors.empty?
+        move.copy_errors_from @unit_move.send(:"#{direction}_inventory_adjustment")
+        copy_unit_move_errors_to_expected_unit_move direction
+      end
+    end
+
+    def copy_unit_move_errors_to_expected_unit_move direction
+      @expected_unit_move.copy_errors_from @unit_move.send(:"#{direction}_inventory_adjustment")
+    end
+
+    private
+
+    def should_validate_pallet_change?
+      site = @unit_move.site
+      site.production_picking? || (site.ship_order_picking? && ! @unit_move.to_pallet.wip?)
+    end
+  end
+end

@@ -1,0 +1,59 @@
+define("Quoting.QuoteChargeItemsCtrl", function(module) {
+  var ChargeItem = require('Quoting.ChargeItem')
+  var _f = require("FunctionalExt")
+
+  function QuoteChargeItemsCtrl(quote, quotesRepo, $rootScope) {
+    _.bindAll(this)
+    $rootScope.$on('quoting:chargeItemAdded', this.onChargeItemAdded)
+
+    this.quoteId = quote.id
+    this.chargeItems = quote.chargeItems
+
+    this.editing = _.zipObject(
+      _.map(this.chargeItems, function(item){
+        return [item.id, false]
+      }))
+  }
+
+  _.extend(QuoteChargeItemsCtrl.prototype, {
+    onChargeItemAdded: function(event, item){
+      this.chargeItems.push(item)
+      this.editing[item.id] = false
+    },
+
+    deleteChargeItem: function(item){
+      this.chargeItems.splice(_.indexOf(this.chargeItems, item), 1)
+      delete this.editing[item.id]
+    },
+
+    switchToEdit: function(item){
+      this.editing[item.id] = true
+    },
+
+    switchToShow: function(item){
+      this.editing[item.id] = false
+    },
+
+    isEditing: function(item){
+      return this.editing[item.id]
+    },
+
+    saveChargeItem: function(sourceItem, destItem){
+      // TODO: use repo rather than extend
+      _.extend(destItem, sourceItem)
+      this.switchToShow(destItem)
+    },
+
+    totalCostPerUnit: function() {
+      return _.reduce(this.chargeItems, function(totalCostPerUnit, item) {
+        return totalCostPerUnit + item.costPerUnit
+      }, 0)
+    },
+
+    totalChargePerUnit: function() {
+      return _f.sum(_.pluck(this.chargeItems, 'chargePerUnit'))
+    }
+  })
+
+  module.exports = QuoteChargeItemsCtrl
+})

@@ -16,10 +16,10 @@ nnoremap ; :
 vnoremap ; :
 
 " Yank entire buffer with gy
-nnoremap gy :%y+<cr>
+" nnoremap gy :%y+<cr>
 
 " Select entire buffer
-nnoremap vy ggVG
+" nnoremap vy ggVG
 
 " Make Y behave like other capital commands.
 " Hat-tip http://vimbits.com/bits/11
@@ -30,18 +30,18 @@ noremap H ^
 noremap L $
 
 " Create newlines without entering insert mode
-nnoremap go o<Esc>k
-nnoremap gO O<Esc>j
+" nnoremap go o<Esc>k
+" nnoremap gO O<Esc>j
 
 " remap U to <C-r> for easier redo
 " from http://vimbits.com/bits/356
-nnoremap U <C-r>
+" nnoremap U <C-r>
 
 " Swap implementations of ` and ' jump to markers
 " By default, ' jumps to the marked line, ` jumps to the marked line and
 " column, so swap them
-nnoremap ' `
-nnoremap ` '
+" nnoremap ' `
+" nnoremap ` '
 
 " ---------------
 " Window Movement
@@ -128,7 +128,7 @@ nnoremap <silent> <leader>uul :t.\|s/./=/\|:nohls<cr>
 "          # --------
 "          # Test 123
 "          # --------
-nnoremap <silent> <leader>cul :normal "lyy"lpwv$r-^"lyyk"lP<cr>
+" nnoremap <silent> <leader>cul :normal "lyy"lpwv$r-^"lyyk"lP<cr>
 
 " Format the entire file
 nnoremap <leader>fef mx=ggG='x

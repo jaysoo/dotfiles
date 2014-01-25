@@ -1,0 +1,37 @@
+require File.join(Rails.root, "app/services/custom_outputs/migrate_staged_custom_outputs")
+
+namespace :custom_outputs do
+
+  desc "Fetches custom outputs from the specified server and saves them locally"
+  task :fetch, [:'user:pass', :hostname] => :environment do |t, args|
+    if File.exists?("test/fixtures/custom_outputs/age")
+      seconds_since_last_fetch = Time.now.to_i - File.read("test/fixtures/custom_outputs/age").to_i
+      if seconds_since_last_fetch < 1.day.to_i
+        puts "Custom outputs do not need to be updated."
+        next
+      end
+    end
+
+    fetcher = CustomOutputFetcher.new
+    persister = CustomOutputPersister.new
+
+    fetcher.credentials = args[:'user:pass']
+    fetcher.hostname = args[:hostname]
+
+    persister.prepare_path
+
+    puts "Fetching outputs..."
+    fetcher.fetch_custom_outputs do |custom_output_xml, account_id|
+      persister.save custom_output_xml, account_id
+      puts "Outputs for account #{account_id} fetched."
+    end
+
+    persister.finish
+    puts 'Done'
+  end
+
+  desc "Migrates staged custom outputs"
+  task :migrate => :environment do
+    CustomOutputs::MigrateStagedCustomOutputs.migrate
+  end
+end

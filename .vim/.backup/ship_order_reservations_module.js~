@@ -1,0 +1,123 @@
+define("ShipOrderReservations", function(module){
+  var withLoading = require("WithLoadingWrapper").getFactoryWrapper()
+  var au = require("AngularUtils")
+
+  var common = require("AngularCommon")
+  var nuErrors = require("AngularErrors")
+  var i18n = require("AngularI18n")
+  var dialog = require("AngularDialog")
+  var ajaxWrapper = require("AngularAjaxWrapper")
+  var filters = require("Picking.Filters")
+  var uiBootstrap = angular.module('ui.bootstrap')
+
+  var m = angular.module("ShipOrderReservations", au.names(filters, common, nuErrors, i18n, uiBootstrap, dialog, ajaxWrapper))
+
+  //------common------
+  m.config([
+    "showDialogProvider",
+    function(showDialogProvider){
+      showDialogProvider.addConfiguration({
+        onReserve: {
+          templateUrl: 'picking/on_reserve_dialog',
+          windowClass: 'narrow'
+        },
+        createPickList: {
+          templateUrl: 'picking/create_pick_list_dialog',
+          windowClass: 'narrow'
+        },
+        deletePickListConfirmation: {
+          templateUrl: 'picking/confirm_pick_list_cancel_dialog',
+          windowClass: 'narrow'
+        },
+        unassign: {
+          templateUrl: 'picking/confirm_unassign_dialog',
+          windowClass: 'narrow'
+        },
+        unassignAll: {
+          templateUrl: 'picking/confirm_unassign_all_dialog',
+          windowClass: 'narrow'
+        }
+      })
+    }
+  ])
+
+  m.factory("getQueryParameter", [
+    require("Picking.GetQueryParameter")
+  ])
+
+
+  //------reservations------
+  m.factory("reservationsRepo", require("Picking.ShipOrderReservationsRepo"))
+
+  m.controller("ReservationsCtrl", [
+    "$scope",
+    "reservationsRepo",
+    "showDialog",
+    "shipOrders",
+    require("Picking.ReservationsCtrl")
+  ])
+
+  m.controller("ReservationItemCtrl", [
+    require("Picking.ReservationItemCtrl")
+  ])
+
+  m.controller("OnReserveDialogCtrl", [
+    "$scope",
+    "dialogContextProvider",
+    "showDialog",
+    require("Picking.OnReserveDialogCtrl")
+  ])
+
+
+
+  //------pick lists------
+  m.factory("pickListRepo", [
+    "$http",
+    "nuErrorCallback",
+    withLoading(require("Picking.ShipOrderPickListsRepo"))
+  ])
+
+  m.controller("PickListsCtrl", [
+    "shipOrders",
+    "pickListRepo",
+    "printPickListsUrl",
+    "cancelPickList",
+    "showDialog",
+    require("Picking.PickListsCtrl")
+  ])
+
+  m.controller("CreatePickListCtrl", [
+    "$scope",
+    "getQueryParameter",
+    "dialogContextProvider",
+    "pickListRepo",
+    require("Picking.CreatePickListCtrl")
+  ])
+
+  m.factory("printPickListsUrl", [
+    require("Picking.PrintPickListsUrl")
+  ])
+
+  m.factory("cancelPickList", [
+    "pickListRepo",
+    "showDialog",
+    require("Picking.CancelPickList")
+  ])
+
+
+
+  //------assigned inventory------
+  m.factory("assignedInventoryRepo", [
+    "$http",
+    require("Picking.ShipOrderAssignedInventoryRepo")
+  ])
+
+  m.controller("AssignedInventoryCtrl", [
+    "shipOrders",
+    "assignedInventoryRepo",
+    "showDialog",
+    require("Picking.AssignedInventoryCtrl")
+  ])
+
+  module.exports = m
+})

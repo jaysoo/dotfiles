@@ -1,0 +1,12 @@
+require 'support/page'
+
+module Quoting
+  module Quotes
+    class NewPage < Page
+      def path
+        "/quoting/quotes/new"
+      end
+    end
+  end
+end
+

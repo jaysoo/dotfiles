@@ -1,0 +1,25 @@
+module Jobs::ProductionStatus
+  NOT_COMPLETE = 0
+  ALMOST_COMPLETE = 1
+  COMPLETE = 2
+
+  def production_status
+    return NOT_COMPLETE if project.long_running?
+
+    if project_complete?
+      return COMPLETE
+    elsif project_will_likely_complete_in_2_hours?
+      return ALMOST_COMPLETE
+    else
+      return NOT_COMPLETE
+    end
+  end
+
+  def project_will_likely_complete_in_2_hours?
+    expected_instant_units_per_hour * 2 >= project.units_remaining
+  end
+
+  def project_complete?
+    project.units_remaining <= 0
+  end
+end

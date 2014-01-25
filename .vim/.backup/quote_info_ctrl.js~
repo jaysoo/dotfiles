@@ -1,0 +1,17 @@
+define("Quoting.QuoteDetailsCtrl", function(module) {
+  var quoteDeserializer = require("Quoting.QuoteDeserializer")
+
+  function QuoteDetailsCtrl(quoteStatuses, quoteData, quotesRepo) {
+    this.quote = quoteDeserializer(quoteData)
+    this.quotesRepo = quotesRepo
+    this.quoteStatuses = quoteStatuses
+  }
+
+  _.extend(QuoteDetailsCtrl.prototype, {
+    updateQuote: function(formData) {
+      this.quotesRepo.update(formData)
+    }
+  })
+
+  module.exports = QuoteDetailsCtrl
+})
