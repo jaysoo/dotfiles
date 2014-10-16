@@ -1,6 +1,0 @@
-//= require main_app/desktop/vendor/angular/angular
-//= require desktop/vendor/angular/ui-bootstrap-custom-tpls-0.6.0
-
-//= require_tree ./../partials/common
-//= require_tree ./../partials/quoting
-//= require_tree ./quoting

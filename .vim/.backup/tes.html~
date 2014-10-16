@@ -1,5 +1,0 @@
-<form> 
-  <input nu-errors-inline ng-model="model.myField" required />
-</form>
-
-

@@ -1,4 +1,0 @@
-@import "outbound_trailers/outbound_standard"
-@import "themeroller/jquery-ui-1.8.9.custom"
-@import "jquery/dialog"
-@import "dialogs"

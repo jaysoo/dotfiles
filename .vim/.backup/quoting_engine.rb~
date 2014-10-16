@@ -1,5 +1,0 @@
-require 'quoting'
-
-Quoting::Core.configure do |config|
-  config.repository.register :customer, CustomerRepository
-end

@@ -1,8 +1,0 @@
-define("Quoting.Quote", function(module) {
-  function Quote(attrs) {
-    this.customer = attrs.effective_date
-    this.effectiveDate = attrs.effective_date
-  }
-
-  module.exports = Quote
-})
